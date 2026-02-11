@@ -18,10 +18,11 @@ This project was bootstrapped with [Create React App](https://github.com/faceboo
    cd thesislov2030
    ```
 
-2. Install dependencies:
+2. **Install dependencies (Required before first run):**
    ```bash
    npm install
    ```
+   > ⚠️ **Important**: You must run `npm install` before running any other commands. This installs all required dependencies including `react-scripts`.
 
 3. Start the development server:
    ```bash
@@ -77,6 +78,25 @@ If you aren’t satisfied with the build tool and configuration choices, you can
 Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
 
 You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+
+## Troubleshooting
+
+### Error: 'react-scripts' is not recognized
+
+If you get the error `'react-scripts' is not recognized as an internal or external command`, it means you haven't installed the project dependencies yet.
+
+**Solution**: Run `npm install` in the project directory before running `npm start`.
+
+```bash
+npm install
+npm start
+```
+
+### Common Issues
+
+- **Missing node_modules folder**: Run `npm install` to install dependencies
+- **Port 3000 already in use**: Either stop the other process using port 3000 or the development server will prompt you to use a different port
+- **Build errors**: Try deleting `node_modules` and `package-lock.json`, then run `npm install` again
 
 ## Learn More
 
