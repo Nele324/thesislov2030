@@ -1,0 +1,65 @@
+name: dev pull requests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [dev]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  tests:
+    uses: ./.github/workflows/test-reusable.yml
+    with:
+      node-version: '20'
+
+  check-actor:
+    name: check who is author
+    needs: tests
+    if: github.event.action == 'opened'
+    runs-on: ubuntu-latest
+    outputs:
+      is_author: ${{ steps.setflag.outputs.is_author }}
+    steps:
+      - name: Check who is the author
+        id: setflag
+        run: |
+          if [ "${{ github.actor }}" == "Thomas-git-kul" ]; then
+            echo "is_author=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_author=false" >> $GITHUB_OUTPUT
+          fi
+
+  notify-Thomas:
+    name: Notify Thomas to pull
+    needs: check-actor
+    if: github.event.action == 'opened' && needs.check-actor.outputs.is_author == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub issue to notify Thomas
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issueTitle = `🚨 Unauthorized PR to dev by ${context.actor}`;
+            const issueBody = `
+            ⚠️ **Unauthorized PR detected**
+
+            - **User:** ${context.actor}
+            - **Branch:** ${context.payload.pull_request.head.ref}
+            - **PR Title:** ${context.payload.pull_request.title}
+            - **Link:** ${context.payload.pull_request.html_url}
+
+            Please review and merge manually if appropriate.
+            `;
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: issueTitle,
+              body: issueBody,
+              assignees: ['Thomas-git-kul'],
+              labels: ['notification']
+            });

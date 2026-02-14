@@ -1,0 +1,88 @@
+name: Reusable Test Workflow
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        required: false
+        default: '20'
+        type: string
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: StartBrewing
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cache node_modules
+        uses: actions/cache@v3
+        with:
+          path: StartBrewing/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm test
+
+  lint:
+    name: Run Lint
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: StartBrewing
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cache node_modules
+        uses: actions/cache@v3
+        with:
+          path: StartBrewing/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Lint
+        run: npm run lint
+
+  security:
+    name: Vulnerability Scan
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: StartBrewing
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cache node_modules
+        uses: actions/cache@v3
+        with:
+          path: StartBrewing/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Security Scan
+        run: npm audit --audit-level=moderate || true

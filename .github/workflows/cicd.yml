@@ -1,0 +1,94 @@
+name: CI-CD pipeline
+
+on:
+  push:
+    branches: [main, dev]
+
+jobs:
+  tests:
+    uses: ./.github/workflows/test-reusable.yml
+    with:
+      node-version: "20"
+
+  deploy:
+    name: Deploy to Vercel
+    needs: tests
+    runs-on: ubuntu-latest
+
+    env:
+      IS_PROD: ${{ github.ref == 'refs/heads/main' }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Log deployment configuration
+        run: |
+          echo "=========================================="
+          echo "DEPLOY JOB - Configuration Check"
+          echo "=========================================="
+          echo "Deploying from branch: ${{ github.ref }}"
+          echo "Is production deployment: $IS_PROD"
+          echo ""
+          if [ "$IS_PROD" = "true" ]; then
+            echo "✓ Deploying to Production environment"
+            echo "  - Vercel will use EXPO_PUBLIC_* variables"
+          else
+            echo "✓ Deploying to Preview environment"
+            echo "  - Vercel will use EXPO_PUBLIC_* variables"
+          fi
+          echo "=========================================="
+          echo "DEPLOY JOB - Configuration Check"
+          echo "=========================================="
+          echo "=========================================="
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Vercel CLI
+        run: npm i -g vercel@latest
+
+      - name: Pull Vercel Environment Information
+        run: |
+          ENVIRONMENT=$([ "$IS_PROD" = "true" ] && echo "production" || echo "preview")
+          echo "Pulling Vercel environment: $ENVIRONMENT"
+          vercel pull --yes --environment=$ENVIRONMENT --token "$VERCEL_TOKEN"
+
+      - name: Deploy to Vercel
+        id: deploy
+        run: |
+          echo "Starting Bob the Bouwer... 🚧"
+
+          if [ "$IS_PROD" = "true" ]; then
+            echo "Deploying to PRODUCTION..."
+            URL=$(vercel deploy --prod --token "$VERCEL_TOKEN" --yes)
+          else
+            echo "Deploying to PREVIEW..."
+            URL=$(vercel deploy --token "$VERCEL_TOKEN" --yes)
+          fi
+
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "✓ Deployed URL: $URL"
+
+      - name: Set Alias
+        run: |
+          ALIAS=$([ "$IS_PROD" = "true" ] && echo "start-to-brew.vercel.app" || echo "start-to-brew-dev.vercel.app")
+          echo "Setting alias: $ALIAS"
+          vercel alias set "${{ steps.deploy.outputs.url }}" "$ALIAS" --token "$VERCEL_TOKEN"
+          echo "✓ Aliased to: $ALIAS"
+
+      - name: Deployment Summary
+        run: |
+          echo "=========================================="
+          echo "DEPLOYMENT COMPLETE"
+          echo "=========================================="
+          echo "Environment: $([ "$IS_PROD" = "true" ] && echo "Production" || echo "Preview")"
+          echo "URL: ${{ steps.deploy.outputs.url }}"
+          echo "Alias: $([ "$IS_PROD" = "true" ] && echo "start-to-brew.vercel.app" || echo "start-to-brew-dev.vercel.app")"
+          echo "Variables used: EXPO_PUBLIC_* (from Vercel)"
+          echo "=========================================="
