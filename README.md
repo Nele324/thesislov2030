@@ -6,6 +6,7 @@ This project was bootstrapped with [Create React App](https://github.com/faceboo
 
 ## Vercel
 Development deployment: https://thesislov2030-git-dev-neles-projects-f8f1eebd.vercel.app/
+
 Production deployment: https://thesislov2030.vercel.app/ 
 
 ## Prerequisites
