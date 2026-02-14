@@ -51,5 +51,5 @@ jobs:
       - name: Set Alias
         run: |
           # Pas deze URL's aan naar jouw eigen Vercel domeinen
-          ALIAS=$([ "$IS_PROD" = "true" ] && echo "jouw-project.vercel.app" || echo "jouw-project-dev.vercel.app")
+          ALIAS=$([ "$IS_PROD" = "true" ] && echo "thesislov2030.vercel.app" || echo "thesislov2030-git-dev-neles-projects-f8f1eebd.vercel.app")
           vercel alias set "${{ steps.deploy.outputs.url }}" "$ALIAS" --token "$VERCEL_TOKEN"
