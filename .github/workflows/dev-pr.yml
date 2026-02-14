@@ -24,27 +24,36 @@ jobs:
       - name: Check who is the author
         id: setflag
         run: |
-          # VERVANG 'JOUW_GITHUB_NAAM' door je eigen username
           if [ "${{ github.actor }}" == "lottesaye" ]; then
             echo "is_author=true" >> $GITHUB_OUTPUT
           else
             echo "is_author=false" >> $GITHUB_OUTPUT
           fi
 
-  notify-owner:
-    name: Notify Owner
+  notify-Lotte:
+    name: Notify Lotte to pull
     needs: check-actor
     if: github.event.action == 'opened' && needs.check-actor.outputs.is_author == 'false'
     runs-on: ubuntu-latest
     steps:
-      - name: Create GitHub issue
+      - name: Create GitHub issue to notify Lotte
         uses: actions/github-script@v7
         with:
           script: |
+            const issueTitle = `🚨 Onbevoegde PR gedetecteerd door ${context.actor}`;
+            const issueBody = `
+            ⚠️ **Unauthorized PR detected**
+
+            - **User:** ${context.actor}
+            - **Branch:** ${context.payload.pull_request.head.ref}
+            - **PR Title:** ${context.payload.pull_request.title}
+            - **Link:** ${context.payload.pull_request.html_url}
+            
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: `🚨 Onbevoegde PR gedetecteerd door ${context.actor}`,
-              body: `Iemand anders probeert code naar de dev branch te sturen.`,
-              assignees: ['lottesaye']
+              title: issueTitle,
+              body: issueBody,
+              assignees: ['lottesaye'],
+              labels: ['notification']
             });
