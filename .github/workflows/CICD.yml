@@ -25,6 +25,24 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Log deployment configuration
+        run: |
+          echo "=========================================="
+          echo "DEPLOY JOB - Configuration Check"
+          echo "=========================================="
+          echo "Deploying from branch: ${{ github.ref }}"
+          echo "Is production deployment: $IS_PROD"
+          echo ""
+          if [ "$IS_PROD" = "true" ]; then
+            echo "✓ Deploying to Production environment"
+          else
+            echo "✓ Deploying to Preview environment"
+          fi
+          echo "=========================================="
+          echo "DEPLOY JOB - Configuration Check"
+          echo "=========================================="
+          echo "=========================================="
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -36,20 +54,38 @@ jobs:
       - name: Pull Vercel Environment Information
         run: |
           ENVIRONMENT=$([ "$IS_PROD" = "true" ] && echo "production" || echo "preview")
+          echo "Pulling Vercel environment: $ENVIRONMENT"
           vercel pull --yes --environment=$ENVIRONMENT --token "$VERCEL_TOKEN"
 
       - name: Deploy to Vercel
         id: deploy
         run: |
+          echo "Starting Bob the Bouwer... 🚧"
+          
           if [ "$IS_PROD" = "true" ]; then
+            echo "Deploying to PRODUCTION..."
             URL=$(vercel deploy --prod --token "$VERCEL_TOKEN" --yes)
           else
+            echo "Deploying to PREVIEW..."
             URL=$(vercel deploy --token "$VERCEL_TOKEN" --yes)
           fi
           echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "✓ Deployed URL: $URL"
 
       - name: Set Alias
         run: |
           # Pas deze URL's aan naar jouw eigen Vercel domeinen
           ALIAS=$([ "$IS_PROD" = "true" ] && echo "thesislov2030.vercel.app" || echo "thesislov2030-git-dev-neles-projects-f8f1eebd.vercel.app")
+          echo "Setting alias: $ALIAS"
           vercel alias set "${{ steps.deploy.outputs.url }}" "$ALIAS" --token "$VERCEL_TOKEN"
+          echo "✓ Aliased to: $ALIAS"
+          
+      - name: Deployment Summary
+        run: |
+          echo "=========================================="
+          echo "DEPLOYMENT COMPLETE"
+          echo "=========================================="
+          echo "Environment: $([ "$IS_PROD" = "true" ] && echo "Production" || echo "Preview")"
+          echo "URL: ${{ steps.deploy.outputs.url }}"
+          echo "Alias: $([ "$IS_PROD" = "true" ] && echo "thesislov2030.vercel.app" || echo "thesislov2030-git-dev-neles-projects-f8f1eebd.vercel.app")"
+          echo "=========================================="
