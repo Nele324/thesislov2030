@@ -1,0 +1,53 @@
+name: dev pull requests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [dev]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  tests:
+    uses: ./.github/workflows/test-reusable.yml
+
+  check-actor:
+    name: check who is author
+    needs: tests
+    if: github.event.action == 'opened'
+    runs-on: ubuntu-latest
+    outputs:
+      is_author: ${{ steps.setflag.outputs.is_author }}
+    steps:
+      - name: Check who is the author
+        id: setflag
+        run: |
+          # Vervang JOUW_GEBRUIKERSNAAM door je echte GitHub username
+          if [ "${{ github.actor }}" == "JOUW_GEBRUIKERSNAAM" ]; then
+            echo "is_author=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_author=false" >> $GITHUB_OUTPUT
+          fi
+
+  notify-owner:
+    name: Notify Owner to pull
+    needs: check-actor
+    if: github.event.action == 'opened' && needs.check-actor.outputs.is_author == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub issue to notify
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueTitle = `🚨 Onbekende PR naar dev door ${context.actor}`;
+            const issueBody = `Onbekende gebruiker heeft een PR geopend naar de dev branch. Controleer dit handmatig.`;
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: issueTitle,
+              body: issueBody,
+              assignees: ['JOUW_GEBRUIKERSNAAM']
+            });
