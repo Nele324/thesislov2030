@@ -15,7 +15,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: StartBrewing
+        working-directory: thesislov2030
 
     steps:
       - name: Checkout code
@@ -24,7 +24,7 @@ jobs:
       - name: Cache node_modules
         uses: actions/cache@v3
         with:
-          path: StartBrewing/node_modules
+          path: thesislov2030/node_modules
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
@@ -41,7 +41,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: StartBrewing
+        working-directory: thesislov2030
 
     steps:
       - name: Checkout code
@@ -50,7 +50,7 @@ jobs:
       - name: Cache node_modules
         uses: actions/cache@v3
         with:
-          path: StartBrewing/node_modules
+          path: thesislov2030/node_modules
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
@@ -67,7 +67,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: StartBrewing
+        working-directory: thesislov2030
 
     steps:
       - name: Checkout code
@@ -76,7 +76,7 @@ jobs:
       - name: Cache node_modules
         uses: actions/cache@v3
         with:
-          path: StartBrewing/node_modules
+          path: thesislov2030/node_modules
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
