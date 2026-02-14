@@ -15,7 +15,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: thesislov2030
+        working-directory: .
 
     steps:
       - name: Checkout code
@@ -41,7 +41,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: thesislov2030
+        working-directory: .
 
     steps:
       - name: Checkout code
@@ -67,7 +67,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: thesislov2030
+        working-directory: .
 
     steps:
       - name: Checkout code
