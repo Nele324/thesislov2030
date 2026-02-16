@@ -4,6 +4,11 @@ This is a React website built with Node.js and TypeScript for a master thesis pr
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app) and includes TypeScript support.
 
+## Vercel
+Development deployment: https://thesislov2030-git-dev-neles-projects-f8f1eebd.vercel.app/
+
+Production deployment: https://thesislov2030.vercel.app/ 
+
 ## Prerequisites
 
 - Node.js (v24.13.0 or higher)
