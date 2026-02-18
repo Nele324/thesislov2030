@@ -1,4 +1,3 @@
-// Tone.tsx - This React component represents a page where users can play a musical note using the Tone.js library. It includes a button to trigger the note and displays information about the played note and instrument. The component also handles cleanup of the Tone.js synth when unmounted.
 import React, { useState, useEffect } from 'react';
 import '../css/App.css';
 
@@ -10,58 +9,116 @@ type Props = {
 const Tone = (window as any).Tone;
 
 export default function NewPage({ onBack }: Props) {
-  // Staat voor weergegeven informatie
   const [noteInfo, setNoteInfo] = useState<{ instrument: string; note: string } | null>(null);
+  const [instrumentType, setInstrumentType] = useState<'synth' | 'piano' /* | 'sax'*/>('synth');
+  const [isLoaded, setIsLoaded] = useState(false);
+
   const [synth, setSynth] = useState<any>(null);
+  const [piano, setPiano] = useState<any>(null);
+  //const [altsax, setAltsax] = useState<any>(null);
 
-  // Kies hier een instrument (Synth) en een noot
-  const instrumentName = 'Synth'; // Voorbeeld: Synth, MembraneSynth, etc.
-  const note = 'C4'; // De noot die wordt afgespeeld
+  const note = 'C4';
 
-  // Cleanup bij unmount
+  // 🔹 Laad ALLES bij mount
   useEffect(() => {
+    if (!Tone) return;
+
+    const newSynth = new Tone.Synth().toDestination();
+
+    const pianoSampler = new Tone.Sampler({
+      urls: {
+        C4: 'C4.mp3',
+      },
+      baseUrl: 'https://tonejs.github.io/audio/salamander/',
+      onload: () => console.log('Piano loaded')
+    }).toDestination();
+
+    /*
+    const saxSampler = new Tone.Sampler({
+      urls: {
+        A4: 'AltoSax.NoVib.ff.A4.stereo.aif'
+      },
+      baseUrl: '/samples/altsax/',
+      onload: () => console.log('Sax loaded')
+    }).toDestination();
+    */
+
+    setSynth(newSynth);
+    setPiano(pianoSampler);
+    //setAltsax(saxSampler);
+
+    // Wacht tot alle instrumenten geladen zijn
+    const checkLoaded = setInterval(() => {
+      if (pianoSampler.loaded /* && saxSampler.loaded*/) {
+        setIsLoaded(true);
+        clearInterval(checkLoaded);
+        console.log('All instruments loaded');
+      }
+    }, 100);
+
     return () => {
-      synth?.dispose();
+      newSynth.dispose();
+      pianoSampler.dispose();
+      //saxSampler.dispose();
+      clearInterval(checkLoaded);
     };
-  }, [synth]);
+  }, []);
 
-  // Functie om de noot te spelen
   const playNote = async () => {
-    await Tone.start(); // start audio context op klik
+    await Tone.start();
 
-    if (!synth) {
-      const newSynth = new Tone.Synth().toDestination();
-      setSynth(newSynth);
-      newSynth.triggerAttackRelease(note, '8n');
-    } else {
-      synth.triggerAttackRelease(note, '8n');
-    }
+    if (!isLoaded) return;
 
-    setNoteInfo({ instrument: instrumentName, note });
+    let currentInstrument;
+    if (instrumentType === 'synth') currentInstrument = synth;
+    else if (instrumentType === 'piano') currentInstrument = piano;
+    //else if (instrumentType === 'sax') currentInstrument = altsax;
+
+    currentInstrument.triggerAttackRelease(note, '8n');
+
+    setNoteInfo({
+      instrument:
+        instrumentType === 'synth'
+          ? 'Synth'
+          : 'Piano',
+      // : instrumentType === 'sax'
+      //   ? 'Alt Sax'
+      //   : note
+      note
+    });
   };
 
   return (
     <div className="App">
       <header className="App-header">
         <h1>Music page</h1>
-        <p>Play a note and see the information about the played note and instrument.</p>
 
-        {/* Knop om de noot te spelen */}
-        <button className="App-link" onClick={playNote}>
-          Play note
+        <p>Select instrument and play a note.</p>
+
+        <select
+          value={instrumentType}
+          onChange={(e) =>
+            setInstrumentType(e.target.value as 'synth' | 'piano' /* | 'sax'*/)
+          }
+        >
+          <option value="synth">Synth</option>
+          <option value="piano">Piano (Sampler)</option>
+          {/*<option value="sax">Alt Sax (Sampler)</option>*/}
+        </select>
+
+        <br /><br />
+
+        <button disabled={!isLoaded} onClick={playNote}>
+          {isLoaded ? 'Play note' : 'Loading instruments...'}
         </button>
 
-        {/* Toon informatie over de noot */}
         {noteInfo && (
           <p>
             Played instrument: <strong>{noteInfo.instrument}</strong> | Note: <strong>{noteInfo.note}</strong>
           </p>
         )}
 
-        {/* Terugknop */}
-        <button className="App-link" onClick={onBack}>
-          Back
-        </button>
+        <button onClick={onBack}>Back</button>
       </header>
     </div>
   );
