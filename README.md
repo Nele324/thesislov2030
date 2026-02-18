@@ -15,6 +15,9 @@ Production deployment: https://thesislov2030.vercel.app/
 - npm (v11.6.2 or higher)
 - Visual Studio Code (recommended)
 
+## Aif to mp3 convert
+https://www.freeconvert.com/nl/aif-to-mp3/download
+
 ## Setup Instructions
 
 1. Clone the repository:
