@@ -10,12 +10,12 @@ const Tone = (window as any).Tone;
 
 export default function NewPage({ onBack }: Props) {
   const [noteInfo, setNoteInfo] = useState<{ instrument: string; note: string } | null>(null);
-  const [instrumentType, setInstrumentType] = useState<'synth' | 'piano' /* | 'sax'*/>('synth');
+  const [instrumentType, setInstrumentType] = useState<'synth' | 'piano' | 'sax'>('synth');
   const [isLoaded, setIsLoaded] = useState(false);
 
   const [synth, setSynth] = useState<any>(null);
   const [piano, setPiano] = useState<any>(null);
-  //const [altsax, setAltsax] = useState<any>(null);
+  const [altsax, setAltsax] = useState<any>(null);
 
   const note = 'C4';
 
@@ -33,23 +33,21 @@ export default function NewPage({ onBack }: Props) {
       onload: () => console.log('Piano loaded')
     }).toDestination();
 
-    /*
     const saxSampler = new Tone.Sampler({
       urls: {
-        A4: 'AltoSax.NoVib.ff.A4.stereo.aif'
+        C4: 'AltoSax.NoVib.ff.C4.stereo.mp3'
       },
       baseUrl: '/samples/altsax/',
       onload: () => console.log('Sax loaded')
     }).toDestination();
-    */
 
     setSynth(newSynth);
     setPiano(pianoSampler);
-    //setAltsax(saxSampler);
+    setAltsax(saxSampler);
 
     // Wacht tot alle instrumenten geladen zijn
     const checkLoaded = setInterval(() => {
-      if (pianoSampler.loaded /* && saxSampler.loaded*/) {
+      if (pianoSampler.loaded && saxSampler.loaded) {
         setIsLoaded(true);
         clearInterval(checkLoaded);
         console.log('All instruments loaded');
@@ -59,7 +57,7 @@ export default function NewPage({ onBack }: Props) {
     return () => {
       newSynth.dispose();
       pianoSampler.dispose();
-      //saxSampler.dispose();
+      saxSampler.dispose();
       clearInterval(checkLoaded);
     };
   }, []);
@@ -72,7 +70,7 @@ export default function NewPage({ onBack }: Props) {
     let currentInstrument;
     if (instrumentType === 'synth') currentInstrument = synth;
     else if (instrumentType === 'piano') currentInstrument = piano;
-    //else if (instrumentType === 'sax') currentInstrument = altsax;
+    else if (instrumentType === 'sax') currentInstrument = altsax;
 
     currentInstrument.triggerAttackRelease(note, '8n');
 
@@ -80,10 +78,9 @@ export default function NewPage({ onBack }: Props) {
       instrument:
         instrumentType === 'synth'
           ? 'Synth'
-          : 'Piano',
-      // : instrumentType === 'sax'
-      //   ? 'Alt Sax'
-      //   : note
+          : instrumentType === 'piano'
+            ? 'Piano'
+            : 'Alt Sax',
       note
     });
   };
@@ -98,12 +95,12 @@ export default function NewPage({ onBack }: Props) {
         <select
           value={instrumentType}
           onChange={(e) =>
-            setInstrumentType(e.target.value as 'synth' | 'piano' /* | 'sax'*/)
+            setInstrumentType(e.target.value as 'synth' | 'piano' | 'sax')
           }
         >
           <option value="synth">Synth</option>
           <option value="piano">Piano (Sampler)</option>
-          {/*<option value="sax">Alt Sax (Sampler)</option>*/}
+          <option value="sax">Alt Sax (Sampler)</option>
         </select>
 
         <br /><br />
