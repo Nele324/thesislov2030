@@ -17,10 +17,10 @@ export default function NewPage({ onBack }: Props) {
 
   const [piano, setPiano] = useState<any>(null);
   const [altsax, setAltsax] = useState<any>(null);
-
   const [currentMelody] = useState(piratesMelody);
 
-  // 🔹 Laad ALLES bij mount
+  const [part, setPart] = useState<any>(null);
+
   useEffect(() => {
     if (!Tone || !currentMelody) return;
 
@@ -35,9 +35,12 @@ export default function NewPage({ onBack }: Props) {
     const saxSampler = new Tone.Sampler({
       urls: altsaxNotes,
       baseUrl: '/samples/altsax/',
-      onload: () => console.log('Sax loaded')
+      onload: () => console.log('Sax loaded'),
+      attack: 0.01,
+      release: 0.05,
     }).toDestination();
-    saxSampler.volume.value = 6;
+
+    saxSampler.volume.value = 4;
 
     // ✅ Check currentMelody voor BPM
     if (currentMelody && currentMelody.bpm) {
@@ -65,6 +68,7 @@ export default function NewPage({ onBack }: Props) {
 
   const playSound = async () => {
     await Tone.start();
+    Tone.context.lookAhead = 0.1; // Verlaag lookAhead voor snellere respons
     if (!isLoaded) return;
 
     let currentInstrument: any = instrumentType === 'piano' ? piano : altsax;
@@ -80,26 +84,37 @@ export default function NewPage({ onBack }: Props) {
 
     Tone.Transport.bpm.value = currentMelody.bpm;
 
-    let cumulativeTime = 0;
+    let time = 0;
     const events = currentMelody.notes.map(n => {
-      const event = [cumulativeTime, n];
-      cumulativeTime += Tone.Time(n.duration).toSeconds(); // tijd optellen
+      const event = [time, n];
+      time += Tone.Time(n.duration);
       return event;
     });
 
-    // Part maken
-    const part = new Tone.Part(
+    if (part) {
+      part.dispose();
+    }
+
+    const newPart = new Tone.Part(
       (time: number, note: { note: string; duration: string }) => {
         if (note.note !== 'rest') {
           currentInstrument.triggerAttackRelease(note.note, note.duration, time);
+          /*
+          currentInstrument.triggerAttack(note.note, time);
+          currentInstrument.triggerRelease(note.note, time + Tone.Time(note.duration).toSeconds());
+          */
         }
       },
       events
     );
 
+    newPart.loop = false;
+    newPart.humanize = false;
+
     // Start de Transport op de juiste tijd
-    part.start(0);
+    newPart.start(0);
     Tone.Transport.start();
+    setPart(newPart);
 
     setNoteInfo({
       instrument:
