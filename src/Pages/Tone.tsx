@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import '../css/App.css';
+import { piratesMelody } from '../music/piratesMelody';
 
 type Props = {
   onBack: () => void;
@@ -9,21 +10,18 @@ type Props = {
 const Tone = (window as any).Tone;
 
 export default function NewPage({ onBack }: Props) {
-  const [noteInfo, setNoteInfo] = useState<{ instrument: string; note: string } | null>(null);
-  const [instrumentType, setInstrumentType] = useState<'synth' | 'piano' | 'sax'>('synth');
+  const [noteInfo, setNoteInfo] = useState<{ instrument: string } | null>(null);
+  const [instrumentType, setInstrumentType] = useState<'piano' | 'sax'>('piano');
   const [isLoaded, setIsLoaded] = useState(false);
 
-  const [synth, setSynth] = useState<any>(null);
   const [piano, setPiano] = useState<any>(null);
   const [altsax, setAltsax] = useState<any>(null);
 
-  const note = 'C4';
+  const [currentMelody] = useState(piratesMelody);
 
   // 🔹 Laad ALLES bij mount
   useEffect(() => {
-    if (!Tone) return;
-
-    const newSynth = new Tone.Synth().toDestination();
+    if (!Tone || !currentMelody) return;
 
     const pianoSampler = new Tone.Sampler({
       urls: {
@@ -35,13 +33,49 @@ export default function NewPage({ onBack }: Props) {
 
     const saxSampler = new Tone.Sampler({
       urls: {
-        C4: 'AltoSax.NoVib.ff.C4.stereo.mp3'
+        A3: 'AltoSax.NoVib.ff.A3.stereo.mp3',
+        A4: 'AltoSax.NoVib.ff.A4.stereo.mp3',
+        Ab3: 'AltoSax.NoVib.ff.Ab3.stereo.mp3',
+        Ab4: 'AltoSax.NoVib.ff.Ab4.stereo.mp3',
+        Ab5: 'AltoSax.NoVib.ff.Ab5.stereo.mp3',
+        B3: 'AltoSax.NoVib.ff.B3.stereo.mp3',
+        B4: 'AltoSax.NoVib.ff.B4.stereo.mp3',
+        Bb3: 'AltoSax.NoVib.ff.Bb3.stereo.mp3',
+        Bb4: 'AltoSax.NoVib.ff.Bb4.stereo.mp3',
+        C4: 'AltoSax.NoVib.ff.C4.stereo.mp3',
+        C5: 'AltoSax.NoVib.ff.C5.stereo.mp3',
+        D3: 'AltoSax.NoVib.ff.D3.stereo.mp3',
+        D4: 'AltoSax.NoVib.ff.D4.stereo.mp3',
+        D5: 'AltoSax.NoVib.ff.D5.stereo.mp3',
+        Db3: 'AltoSax.NoVib.ff.Db3.stereo.mp3',
+        Db4: 'AltoSax.NoVib.ff.Db4.stereo.mp3',
+        Db5: 'AltoSax.NoVib.ff.Db5.stereo.mp3',
+        E3: 'AltoSax.NoVib.ff.E3.stereo.mp3',
+        E4: 'AltoSax.NoVib.ff.E4.stereo.mp3',
+        E5: 'AltoSax.NoVib.ff.E5.stereo.mp3',
+        Eb3: 'AltoSax.NoVib.ff.Eb3.stereo.mp3',
+        Eb4: 'AltoSax.NoVib.ff.Eb4.stereo.mp3',
+        Eb5: 'AltoSax.NoVib.ff.Eb5.stereo.mp3',
+        F3: 'AltoSax.NoVib.ff.F3.stereo.mp3',
+        F4: 'AltoSax.NoVib.ff.F4.stereo.mp3',
+        F5: 'AltoSax.NoVib.ff.F5.stereo.mp3',
+        G3: 'AltoSax.NoVib.ff.G3.stereo.mp3',
+        G4: 'AltoSax.NoVib.ff.G4.stereo.mp3',
+        G5: 'AltoSax.NoVib.ff.G5.stereo.mp3',
+        Gb3: 'AltoSax.NoVib.ff.Gb3.stereo.mp3',
+        Gb4: 'AltoSax.NoVib.ff.Gb4.stereo.mp3',
+        Gb5: 'AltoSax.NoVib.ff.Gb5.stereo.mp3',
       },
       baseUrl: '/samples/altsax/',
       onload: () => console.log('Sax loaded')
     }).toDestination();
+    saxSampler.volume.value = 6;
 
-    setSynth(newSynth);
+    // ✅ Check currentMelody voor BPM
+    if (currentMelody && currentMelody.bpm) {
+      Tone.Transport.bpm.value = currentMelody.bpm;
+    }
+
     setPiano(pianoSampler);
     setAltsax(saxSampler);
 
@@ -55,33 +89,55 @@ export default function NewPage({ onBack }: Props) {
     }, 100);
 
     return () => {
-      newSynth.dispose();
       pianoSampler.dispose();
       saxSampler.dispose();
       clearInterval(checkLoaded);
     };
-  }, []);
+  }, [currentMelody]);
 
-  const playNote = async () => {
+  const playSound = async () => {
     await Tone.start();
-
     if (!isLoaded) return;
 
-    let currentInstrument;
-    if (instrumentType === 'synth') currentInstrument = synth;
-    else if (instrumentType === 'piano') currentInstrument = piano;
-    else if (instrumentType === 'sax') currentInstrument = altsax;
+    let currentInstrument: any = instrumentType === 'piano' ? piano : altsax;
+    if (!currentInstrument) return;
 
-    currentInstrument.triggerAttackRelease(note, '8n');
+    currentInstrument.releaseAll();
+
+    if (!currentMelody || !currentMelody.notes) return;
+
+    Tone.Transport.stop();
+    Tone.Transport.cancel();
+    Tone.Transport.position = 0;
+
+    Tone.Transport.bpm.value = currentMelody.bpm;
+
+    let cumulativeTime = 0;
+    const events = currentMelody.notes.map(n => {
+      const event = [cumulativeTime, n];
+      cumulativeTime += Tone.Time(n.duration).toSeconds(); // tijd optellen
+      return event;
+    });
+
+    // Part maken
+    const part = new Tone.Part(
+      (time: number, note: { note: string; duration: string }) => {
+        if (note.note !== 'rest') {
+          currentInstrument.triggerAttackRelease(note.note, note.duration, time);
+        }
+      },
+      events
+    );
+
+    // Start de Transport op de juiste tijd
+    part.start(0);
+    Tone.Transport.start();
 
     setNoteInfo({
       instrument:
-        instrumentType === 'synth'
-          ? 'Synth'
-          : instrumentType === 'piano'
-            ? 'Piano'
-            : 'Alt Sax',
-      note
+        instrumentType === 'piano'
+          ? 'Piano'
+          : 'Alt Sax',
     });
   };
 
@@ -90,28 +146,27 @@ export default function NewPage({ onBack }: Props) {
       <header className="App-header">
         <h1>Music page</h1>
 
-        <p>Select instrument and play a note.</p>
+        <p>Select</p>
 
         <select
           value={instrumentType}
           onChange={(e) =>
-            setInstrumentType(e.target.value as 'synth' | 'piano' | 'sax')
+            setInstrumentType(e.target.value as 'piano' | 'sax')
           }
         >
-          <option value="synth">Synth</option>
           <option value="piano">Piano (Sampler)</option>
           <option value="sax">Alt Sax (Sampler)</option>
         </select>
 
         <br /><br />
 
-        <button disabled={!isLoaded} onClick={playNote}>
+        <button disabled={!isLoaded} onClick={playSound}>
           {isLoaded ? 'Play note' : 'Loading instruments...'}
         </button>
 
         {noteInfo && (
           <p>
-            Played instrument: <strong>{noteInfo.instrument}</strong> | Note: <strong>{noteInfo.note}</strong>
+            Played instrument: <strong>{noteInfo.instrument}</strong>
           </p>
         )}
 
