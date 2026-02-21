@@ -21,6 +21,12 @@ const FullScorePlayer = () => {
 
     const PIXELS_PER_SECOND = 200;
 
+    const getSaxNootNaam = (midiNumber) => {
+        const namen = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"];
+        const index = midiNumber % 12;
+        return namen[index];
+    };
+
     useEffect(() => {
         Soundfont.instrument(audioContext.current, 'alto_sax', { soundfont: 'MusyngKite' })
             .then((inst) => {
@@ -30,13 +36,20 @@ const FullScorePlayer = () => {
 
         Midi.fromUrl("/scores/He's_a_pirate.mid").then((midi) => {
             const allNotes = midi.tracks[0].notes.filter(n => n.duration > 0.05);
-            const groups = allNotes.map((note, i) => ({
-                time: note.time,
-                duration: note.duration,
-                name: note.name, // Dit bevat de naam van de noot (bijv. "G4")
-                velocity: note.velocity,
-                id: `note-${i}`
-            }));
+            const groups = allNotes.map((note, i) => {
+                const geschrevenMidiNummer = note.midi - 3; // Terug naar +3 voor altsax kalibratie
+                const geschrevenNaam = getSaxNootNaam(geschrevenMidiNummer);
+
+                return {
+                    time: note.time,
+                    duration: note.duration,
+                    weergaveNaam: geschrevenNaam,
+                    klinkendeNaam: note.name,
+                    velocity: note.velocity,
+                    id: `note-${i}`,
+                    midi: note.midi
+                };
+            });
             setNoteGroups(groups);
             setIsMidiReady(true);
         });
@@ -44,15 +57,37 @@ const FullScorePlayer = () => {
         return () => cancelAnimationFrame(requestRef.current);
     }, []);
 
+    // --- DE NIEUWE HERBEGIN FUNCTIE ---
+    const resetPlayer = () => {
+        // 1. Stop geluid
+        if (activeNoteEvent.current) {
+            activeNoteEvent.current.stop();
+            activeNoteEvent.current = null;
+        }
+
+        // 2. Stop animatie loop
+        cancelAnimationFrame(requestRef.current);
+
+        // 3. Reset alle refs
+        startTimeRef.current = null;
+        pausedTimeRef.current = 0;
+        isPaused.current = true;
+        currentIndex.current = 0;
+
+        // 4. Reset states
+        setDisplayStep(0);
+        setIsPlayingVisuals(false);
+
+        // 5. Zet de blokjes visueel terug op startpositie
+        updateBlockPositions(0);
+    };
+
     const animate = (time) => {
         if (isPaused.current) return;
-
         if (!startTimeRef.current) startTimeRef.current = time;
         const elapsed = (time - startTimeRef.current) / 1000 + pausedTimeRef.current;
-
         const currentNote = noteGroups[currentIndex.current];
 
-        // 1. Rust-logica: Check of we het BEGIN van de volgende noot hebben bereikt
         if (!activeNoteEvent.current && currentNote && elapsed >= currentNote.time) {
             isPaused.current = true;
             pausedTimeRef.current = currentNote.time;
@@ -60,7 +95,6 @@ const FullScorePlayer = () => {
             return;
         }
 
-        // 2. Speel-logica: Check of de huidige noot klaar is
         if (activeNoteEvent.current && currentNote && elapsed >= (currentNote.time + currentNote.duration)) {
             if (activeNoteEvent.current) {
                 activeNoteEvent.current.stop();
@@ -68,7 +102,6 @@ const FullScorePlayer = () => {
             }
             currentIndex.current += 1;
             setDisplayStep(currentIndex.current);
-
             startTimeRef.current = time;
             pausedTimeRef.current = elapsed;
         }
@@ -102,7 +135,7 @@ const FullScorePlayer = () => {
         const currentNote = noteGroups[currentIndex.current];
         if (audioContext.current.state === 'suspended') await audioContext.current.resume();
 
-        activeNoteEvent.current = player.play(currentNote.name, audioContext.current.currentTime, {
+        activeNoteEvent.current = player.play(currentNote.klinkendeNaam, audioContext.current.currentTime, {
             gain: currentNote.velocity
         });
 
@@ -115,7 +148,6 @@ const FullScorePlayer = () => {
         if (activeNoteEvent.current) {
             activeNoteEvent.current.stop();
             activeNoteEvent.current = null;
-
             isPaused.current = true;
             const now = performance.now();
             if (startTimeRef.current) {
@@ -128,11 +160,21 @@ const FullScorePlayer = () => {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px', backgroundColor: '#111', minHeight: '100vh', color: 'white', userSelect: 'none' }}>
-            <div style={{ padding: '10px', backgroundColor: '#333', borderRadius: '8px', marginBottom: '20px' }}>
-                <p>Status: {isPlayerReady && isMidiReady ? "Houd de knop ingedrukt om te spelen" : "Laden..."}</p>
+
+            <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
+                <div style={{ padding: '10px', backgroundColor: '#333', borderRadius: '8px' }}>
+                    <p style={{ margin: 0 }}>Status: {isPlayerReady && isMidiReady ? "Klaar" : "Laden..."}</p>
+                </div>
+                {/* DE HERBEGIN KNOP */}
+                <button
+                    onClick={resetPlayer}
+                    style={{ padding: '10px 20px', backgroundColor: '#e74c3c', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                    RESET / HERBEGIN
+                </button>
             </div>
 
-            <div ref={containerRef} style={{ width: '800px', height: '150px', backgroundColor: '#000', position: 'relative', overflow: 'hidden', border: '2px solid #444' }}>
+            <div ref={containerRef} style={{ width: '800px', height: '150px', backgroundColor: '#000', position: 'relative', overflow: 'hidden', border: '2px solid #444', borderRadius: '10px' }}>
                 <div style={{ position: 'absolute', left: '100px', top: 0, bottom: 0, width: '3px', backgroundColor: 'red', zIndex: 10, boxShadow: '0 0 15px red' }} />
 
                 {noteGroups.map((note, index) => (
@@ -144,24 +186,19 @@ const FullScorePlayer = () => {
                             position: 'absolute',
                             left: 0,
                             top: '40px',
-                            width: `${Math.max(note.duration * PIXELS_PER_SECOND, 20)}px`,
+                            width: `${Math.max(note.duration * PIXELS_PER_SECOND, 40)}px`,
                             height: '60px',
                             backgroundColor: index < displayStep ? '#333' : (index === displayStep ? '#f1c40f' : '#2ecc71'),
                             border: '1px solid rgba(255,255,255,0.4)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
+                            borderRadius: '4px',
                             willChange: 'transform'
                         }}
                     >
-                        {/* HIER WORDT DE NOOTNAAM GETOOND IN PLAATS VAN HET NUMMER */}
-                        <span style={{
-                            color: index === displayStep ? 'black' : 'white',
-                            fontWeight: 'bold',
-                            fontSize: '14px',
-                            textShadow: index === displayStep ? 'none' : '1px 1px 2px black'
-                        }}>
-                            {note.name}
+                        <span style={{ color: index === displayStep ? 'black' : 'white', fontWeight: 'bold' }}>
+                            {note.weergaveNaam}
                         </span>
                     </div>
                 ))}
@@ -169,21 +206,16 @@ const FullScorePlayer = () => {
 
             <div style={{ marginTop: '50px' }}>
                 {!isPlayingVisuals ? (
-                    <button onClick={startVisuals} style={{ padding: '20px 40px', cursor: 'pointer', borderRadius: '50px', border: 'none', backgroundColor: '#3498db', color: 'white', fontWeight: 'bold' }}>START PARTITUUR</button>
+                    <button onClick={startVisuals} style={{ padding: '20px 40px', fontSize: '1.2rem', cursor: 'pointer', borderRadius: '50px', border: 'none', backgroundColor: '#3498db', color: 'white', fontWeight: 'bold' }}>START PARTITUUR</button>
                 ) : (
                     <button
                         onMouseDown={startStep}
                         onMouseUp={stopStep}
                         onMouseLeave={stopStep}
                         style={{
-                            width: '150px',
-                            height: '150px',
-                            borderRadius: '50%',
-                            border: 'none',
+                            width: '150px', height: '150px', borderRadius: '50%', border: 'none',
                             backgroundColor: isPaused.current ? '#2ecc71' : '#f1c40f',
-                            fontSize: '1.2rem',
-                            fontWeight: 'bold',
-                            cursor: 'pointer',
+                            fontSize: '1.2rem', fontWeight: 'bold', cursor: 'pointer',
                             boxShadow: isPaused.current ? '0 10px 20px rgba(0,0,0,0.3)' : 'inset 0 5px 10px rgba(0,0,0,0.5)'
                         }}
                     >
@@ -191,7 +223,9 @@ const FullScorePlayer = () => {
                     </button>
                 )}
             </div>
-            <p style={{ marginTop: '20px' }}>Volgende noot: {noteGroups[displayStep]?.name || "Einde"}</p>
+            <p style={{ marginTop: '20px', fontSize: '1.2rem' }}>
+                Noot op partituur: <strong style={{ color: '#f1c40f' }}>{noteGroups[displayStep]?.weergaveNaam || "-"}</strong>
+            </p>
         </div>
     );
 };
