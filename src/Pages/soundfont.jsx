@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Soundfont from 'soundfont-player';
 import { Midi } from '@tonejs/midi';
 
@@ -55,7 +55,7 @@ const FullScorePlayer = () => {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
         };
-    }, [isPlayingVisuals, noteGroups, player]); // Reageer op veranderingen in status
+    }, [isPlayingVisuals, startStep, stopStep]); // Reageer op veranderingen in status
 
     useEffect(() => {
         Soundfont.instrument(audioContext.current, 'alto_sax', { soundfont: 'MusyngKite' })
@@ -150,7 +150,7 @@ const FullScorePlayer = () => {
         requestRef.current = requestAnimationFrame(animate);
     };
 
-    const startStep = async () => {
+    const startStep = useCallback(async () => {
         if (!player || currentIndex.current >= noteGroups.length) return;
         const currentNote = noteGroups[currentIndex.current];
         if (audioContext.current.state === 'suspended') await audioContext.current.resume();
@@ -162,9 +162,9 @@ const FullScorePlayer = () => {
         isPaused.current = false;
         startTimeRef.current = null;
         requestRef.current = requestAnimationFrame(animate);
-    };
+    }, [player, noteGroups]);
 
-    const stopStep = () => {
+    const stopStep = useCallback(() => {
         if (activeNoteEvent.current) {
             activeNoteEvent.current.stop();
             activeNoteEvent.current = null;
@@ -176,7 +176,7 @@ const FullScorePlayer = () => {
             }
             cancelAnimationFrame(requestRef.current);
         }
-    };
+    }, []);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px', backgroundColor: '#111', minHeight: '100vh', color: 'white', userSelect: 'none' }}>
