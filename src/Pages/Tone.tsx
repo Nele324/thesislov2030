@@ -12,7 +12,7 @@ const Tone = (window as any).Tone;
 
 export default function NewPage({ onBack }: Props) {
   const [noteInfo, setNoteInfo] = useState<{ instrument: string } | null>(null);
-  const [instrumentType, setInstrumentType] = useState<'piano' | 'sax'>('piano');
+  const [instrumentType, setInstrumentType] = useState<'piano' | 'sax'>('sax');
   const [isLoaded, setIsLoaded] = useState(false);
 
   const [piano, setPiano] = useState<any>(null);
@@ -37,7 +37,7 @@ export default function NewPage({ onBack }: Props) {
       baseUrl: '/samples/altsax/',
       onload: () => console.log('Sax loaded'),
       attack: 0.01,
-      release: 0.05,
+      release: 0.15,
     }).toDestination();
 
     saxSampler.volume.value = 4;
@@ -68,7 +68,7 @@ export default function NewPage({ onBack }: Props) {
 
   const playSound = async () => {
     await Tone.start();
-    Tone.context.lookAhead = 0.1; // Verlaag lookAhead voor snellere respons
+    Tone.context.lookAhead = 0.1;
     if (!isLoaded) return;
 
     let currentInstrument: any = instrumentType === 'piano' ? piano : altsax;
@@ -85,24 +85,27 @@ export default function NewPage({ onBack }: Props) {
     Tone.Transport.bpm.value = currentMelody.bpm;
 
     let time = 0;
-    const events = currentMelody.notes.map(n => {
-      const event = [time, n];
-      time += Tone.Time(n.duration);
-      return event;
+    let events = currentMelody.notes.map((n, idx) => {
+      const eventTime = time;
+      const eventValue = { note: n.note, duration: n.duration, index: idx, StartTime: time };
+      time += Tone.Time(n.duration).toSeconds();
+      return [eventTime, eventValue] as [number, { note: string; duration: string; index: number; StartTime: number }];
     });
 
-    if (part) {
-      part.dispose();
-    }
+    if (part) { part.dispose(); }
 
     const newPart = new Tone.Part(
-      (time: number, note: { note: string; duration: string }) => {
-        if (note.note !== 'rest') {
-          currentInstrument.triggerAttackRelease(note.note, note.duration, time);
-          /*
-          currentInstrument.triggerAttack(note.note, time);
-          currentInstrument.triggerRelease(note.note, time + Tone.Time(note.duration).toSeconds());
-          */
+      (time: number, value: { note: string; duration: string; index: number; StartTime: number }) => {
+        const { note, duration, index, StartTime } = value;
+        if (note !== 'rest') {
+          currentInstrument.triggerAttack(note, time);
+          //currentInstrument.triggerRelease(note.note, time + Tone.Time(note.duration).toSeconds());
+
+          const nextEvent = events[index + 1];
+          const nextTime = nextEvent ? nextEvent[0] : StartTime + Tone.Time(duration).toSeconds();
+          const noteDurationSec = Tone.Time(duration).toSeconds();
+          const releaseTime = Math.min(noteDurationSec * 0.9, nextTime - time);
+          currentInstrument.triggerRelease(note, time + releaseTime);
         }
       },
       events
@@ -110,8 +113,6 @@ export default function NewPage({ onBack }: Props) {
 
     newPart.loop = false;
     newPart.humanize = false;
-
-    // Start de Transport op de juiste tijd
     newPart.start(0);
     Tone.Transport.start();
     setPart(newPart);
