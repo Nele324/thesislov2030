@@ -17,6 +17,7 @@ const FullScorePlayer = () => {
     const isPaused = useRef(true);
     const currentIndex = useRef(0);
     const activeNoteEvent = useRef(null);
+    const isKeyDown = useRef(false); // Houdt bij of de spatiebalk al ingedrukt is
     const audioContext = useRef(new (window.AudioContext || window.webkitAudioContext)());
 
     const PIXELS_PER_SECOND = 200;
@@ -26,6 +27,35 @@ const FullScorePlayer = () => {
         const index = midiNumber % 12;
         return namen[index];
     };
+
+    // --- TOETSENBORD LOGICA ---
+    useEffect(() => {
+        const handleKeyDown = (event) => {
+            if (event.code === 'Space') {
+                event.preventDefault(); // Voorkom scrollen
+                if (!isKeyDown.current && isPlayingVisuals) {
+                    isKeyDown.current = true;
+                    startStep();
+                }
+            }
+        };
+
+        const handleKeyUp = (event) => {
+            if (event.code === 'Space') {
+                event.preventDefault();
+                isKeyDown.current = false;
+                stopStep();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, [isPlayingVisuals, noteGroups, player]); // Reageer op veranderingen in status
 
     useEffect(() => {
         Soundfont.instrument(audioContext.current, 'alto_sax', { soundfont: 'MusyngKite' })
@@ -37,7 +67,7 @@ const FullScorePlayer = () => {
         Midi.fromUrl("/scores/He's_a_pirate.mid").then((midi) => {
             const allNotes = midi.tracks[0].notes.filter(n => n.duration > 0.05);
             const groups = allNotes.map((note, i) => {
-                const geschrevenMidiNummer = note.midi - 3; // Terug naar +3 voor altsax kalibratie
+                const geschrevenMidiNummer = note.midi - 3;
                 const geschrevenNaam = getSaxNootNaam(geschrevenMidiNummer);
 
                 return {
@@ -57,28 +87,18 @@ const FullScorePlayer = () => {
         return () => cancelAnimationFrame(requestRef.current);
     }, []);
 
-    // --- DE NIEUWE HERBEGIN FUNCTIE ---
     const resetPlayer = () => {
-        // 1. Stop geluid
         if (activeNoteEvent.current) {
             activeNoteEvent.current.stop();
             activeNoteEvent.current = null;
         }
-
-        // 2. Stop animatie loop
         cancelAnimationFrame(requestRef.current);
-
-        // 3. Reset alle refs
         startTimeRef.current = null;
         pausedTimeRef.current = 0;
         isPaused.current = true;
         currentIndex.current = 0;
-
-        // 4. Reset states
         setDisplayStep(0);
         setIsPlayingVisuals(false);
-
-        // 5. Zet de blokjes visueel terug op startpositie
         updateBlockPositions(0);
     };
 
@@ -163,9 +183,8 @@ const FullScorePlayer = () => {
 
             <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
                 <div style={{ padding: '10px', backgroundColor: '#333', borderRadius: '8px' }}>
-                    <p style={{ margin: 0 }}>Status: {isPlayerReady && isMidiReady ? "Klaar" : "Laden..."}</p>
+                    <p style={{ margin: 0 }}>Status: {isPlayerReady && isMidiReady ? "Gebruik SPATIEBALK om te spelen" : "Laden..."}</p>
                 </div>
-                {/* DE HERBEGIN KNOP */}
                 <button
                     onClick={resetPlayer}
                     style={{ padding: '10px 20px', backgroundColor: '#e74c3c', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
@@ -204,25 +223,32 @@ const FullScorePlayer = () => {
                 ))}
             </div>
 
-            <div style={{ marginTop: '50px' }}>
+            <div style={{ marginTop: '50px', textAlign: 'center' }}>
                 {!isPlayingVisuals ? (
-                    <button onClick={startVisuals} style={{ padding: '20px 40px', fontSize: '1.2rem', cursor: 'pointer', borderRadius: '50px', border: 'none', backgroundColor: '#3498db', color: 'white', fontWeight: 'bold' }}>START PARTITUUR</button>
-                ) : (
-                    <button
-                        onMouseDown={startStep}
-                        onMouseUp={stopStep}
-                        onMouseLeave={stopStep}
-                        style={{
-                            width: '150px', height: '150px', borderRadius: '50%', border: 'none',
-                            backgroundColor: isPaused.current ? '#2ecc71' : '#f1c40f',
-                            fontSize: '1.2rem', fontWeight: 'bold', cursor: 'pointer',
-                            boxShadow: isPaused.current ? '0 10px 20px rgba(0,0,0,0.3)' : 'inset 0 5px 10px rgba(0,0,0,0.5)'
-                        }}
-                    >
-                        {isPaused.current ? "HOUD VAST" : "BLAAS!"}
+                    <button onClick={startVisuals} style={{ padding: '20px 40px', fontSize: '1.2rem', cursor: 'pointer', borderRadius: '50px', border: 'none', backgroundColor: '#3498db', color: 'white', fontWeight: 'bold' }}>
+                        START PARTITUUR
                     </button>
+                ) : (
+                    <div style={{
+                        width: '150px',
+                        height: '150px',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: isPaused.current ? '#2ecc71' : '#f1c40f',
+                        fontSize: '1.2rem',
+                        fontWeight: 'bold',
+                        color: 'black',
+                        boxShadow: isPaused.current ? '0 10px 20px rgba(0,0,0,0.3)' : 'inset 0 5px 10px rgba(0,0,0,0.5)',
+                        transition: 'background-color 0.1s'
+                    }}>
+                        SPATIE
+                    </div>
                 )}
+                <p style={{ marginTop: '15px', color: '#888' }}>Tip: Houd de spatiebalk ingedrukt</p>
             </div>
+
             <p style={{ marginTop: '20px', fontSize: '1.2rem' }}>
                 Noot op partituur: <strong style={{ color: '#f1c40f' }}>{noteGroups[displayStep]?.weergaveNaam || "-"}</strong>
             </p>
