@@ -28,35 +28,6 @@ const FullScorePlayer = () => {
         return namen[index];
     };
 
-    // --- TOETSENBORD LOGICA ---
-    useEffect(() => {
-        const handleKeyDown = (event) => {
-            if (event.code === 'Space') {
-                event.preventDefault(); // Voorkom scrollen
-                if (!isKeyDown.current && isPlayingVisuals) {
-                    isKeyDown.current = true;
-                    startStep();
-                }
-            }
-        };
-
-        const handleKeyUp = (event) => {
-            if (event.code === 'Space') {
-                event.preventDefault();
-                isKeyDown.current = false;
-                stopStep();
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        window.addEventListener('keyup', handleKeyUp);
-
-        return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-            window.removeEventListener('keyup', handleKeyUp);
-        };
-    }, [isPlayingVisuals, startStep, stopStep]); // Reageer op veranderingen in status
-
     useEffect(() => {
         Soundfont.instrument(audioContext.current, 'alto_sax', { soundfont: 'MusyngKite' })
             .then((inst) => {
@@ -102,7 +73,7 @@ const FullScorePlayer = () => {
         updateBlockPositions(0);
     };
 
-    const animate = (time) => {
+    const animate = useCallback((time) => {
         if (isPaused.current) return;
         if (!startTimeRef.current) startTimeRef.current = time;
         const elapsed = (time - startTimeRef.current) / 1000 + pausedTimeRef.current;
@@ -128,7 +99,7 @@ const FullScorePlayer = () => {
 
         updateBlockPositions(elapsed);
         requestRef.current = requestAnimationFrame(animate);
-    };
+    }, [noteGroups]);
 
     const updateBlockPositions = (time) => {
         if (!containerRef.current) return;
@@ -162,7 +133,7 @@ const FullScorePlayer = () => {
         isPaused.current = false;
         startTimeRef.current = null;
         requestRef.current = requestAnimationFrame(animate);
-    }, [player, noteGroups]);
+    }, [player, noteGroups, animate]);
 
     const stopStep = useCallback(() => {
         if (activeNoteEvent.current) {
@@ -177,6 +148,35 @@ const FullScorePlayer = () => {
             cancelAnimationFrame(requestRef.current);
         }
     }, []);
+
+    // --- TOETSENBORD LOGICA ---
+    useEffect(() => {
+        const handleKeyDown = (event) => {
+            if (event.code === 'Space') {
+                event.preventDefault(); // Voorkom scrollen
+                if (!isKeyDown.current && isPlayingVisuals) {
+                    isKeyDown.current = true;
+                    startStep();
+                }
+            }
+        };
+
+        const handleKeyUp = (event) => {
+            if (event.code === 'Space') {
+                event.preventDefault();
+                isKeyDown.current = false;
+                stopStep();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, [isPlayingVisuals, startStep, stopStep]); // Reageer op veranderingen in status
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px', backgroundColor: '#111', minHeight: '100vh', color: 'white', userSelect: 'none' }}>
