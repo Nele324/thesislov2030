@@ -4,118 +4,108 @@ import { Midi } from '@tonejs/midi';
 
 const FullScorePlayer = () => {
     const [player, setPlayer] = useState(null);
-    const [midiData, setMidiData] = useState(null);
-    const [isPlaying, setIsPlaying] = useState(false);
-
-    // We gebruiken deze booleans voor de status-tekst
+    const [noteGroups, setNoteGroups] = useState([]);
     const [isPlayerReady, setIsPlayerReady] = useState(false);
     const [isMidiReady, setIsMidiReady] = useState(false);
 
+    // 1. VOEG DEZE STATE TOE VOOR DE WEERGAVE
+    const [displayStep, setDisplayStep] = useState(0);
+
+    const currentIndex = useRef(0);
     const audioContext = useRef(new (window.AudioContext || window.webkitAudioContext)());
-    const scheduledEvents = useRef([]);
 
     useEffect(() => {
-        Soundfont.instrument(audioContext.current, 'voice_oohs', { soundfont: 'MusyngKite' })
+        Soundfont.instrument(audioContext.current, 'alto_sax', { soundfont: 'MusyngKite' })
             .then((inst) => {
                 setPlayer(inst);
                 setIsPlayerReady(true);
             });
 
         Midi.fromUrl("/scores/He's_a_pirate.mid").then((midi) => {
-            setMidiData(midi);
+            const allNotes = midi.tracks[0].notes;
+            const groups = [];
+            allNotes.forEach(note => {
+                const lastGroup = groups[groups.length - 1];
+                if (lastGroup && Math.abs(lastGroup.time - note.time) < 0.01) {
+                    lastGroup.notes.push(note);
+                } else {
+                    groups.push({ time: note.time, notes: [note] });
+                }
+            });
+            setNoteGroups(groups);
             setIsMidiReady(true);
         });
     }, []);
 
-    const getStatusText = () => {
-        // Als het aan het spelen is, tonen we dat eerst
-        if (isPlaying) return "Bezig met afspelen...";
+    const playNextStep = async () => {
+        if (!player || noteGroups.length === 0) return;
 
-        // Anders tonen we de laad-status
-        if (isPlayerReady && isMidiReady) return "Alles is klaar om te spelen";
-        if (isPlayerReady) return "Instrument geladen, bezig met MIDI...";
-        if (isMidiReady) return "MIDI geladen, bezig met instrument...";
-        return "Laden...";
-    };
-
-    const stopAllNotes = () => {
-        if (player) {
-            player.stop();
+        if (currentIndex.current >= noteGroups.length) {
+            currentIndex.current = 0;
+            setDisplayStep(0); // Reset weergave
         }
-        scheduledEvents.current.forEach(event => {
-            if (event && event.stop) event.stop();
-        });
-        scheduledEvents.current = [];
-    };
-
-    const playFullScore = async () => {
-        if (!player || !midiData) return;
-
-        stopAllNotes();
 
         if (audioContext.current.state === 'suspended') {
             await audioContext.current.resume();
         }
 
-        const startTime = audioContext.current.currentTime + 0.1;
+        const currentGroup = noteGroups[currentIndex.current];
+        const now = audioContext.current.currentTime;
 
-        setIsPlaying(true);
-
-        midiData.tracks.forEach((track) => {
-            track.notes.forEach((note) => {
-                const event = player.play(note.name, startTime + note.time, {
-                    duration: note.duration,
-                    gain: note.velocity
-                });
-                scheduledEvents.current.push(event);
+        currentGroup.notes.forEach(note => {
+            player.play(note.name, now, {
+                duration: note.duration,
+                gain: note.velocity
             });
         });
 
-        // Gebruik midiData.duration om te weten wanneer we klaar zijn
-        setTimeout(() => {
-            setIsPlaying(false);
-        }, midiData.duration * 1000);
+        // 2. VERHOOG DE REF VOOR DE LOGICA
+        currentIndex.current += 1;
+
+        // 3. UPDATE DE STATE VOOR DE VISUELE TEKST
+        setDisplayStep(currentIndex.current);
+    };
+
+    const getStatusText = () => {
+        // Gebruik hier displayStep in plaats van currentIndex.current
+        if (isPlayerReady && isMidiReady) return `Klaar! Stap ${displayStep} van ${noteGroups.length}`;
+        return "Laden...";
     };
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px', gap: '20px' }}>
-            <h2>Musescore MIDI Player</h2>
+            <h2>Interactieve Saxofoon Player</h2>
             <div style={{ padding: '10px', backgroundColor: '#f0f0f0', borderRadius: '8px' }}>
                 <p>Status: <strong>{getStatusText()}</strong></p>
             </div>
 
-            <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                    onClick={playFullScore}
-                    style={{
-                        padding: '12px 24px',
-                        backgroundColor: '#2ecc71',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontWeight: 'bold'
-                    }}
-                >
-                    {isPlaying ? "OPNIEUW STARTEN" : "START PARTITUUR"}
-                </button>
+            <button
+                onMouseDown={playNextStep}
+                style={{
+                    width: '150px',
+                    height: '150px',
+                    backgroundColor: '#2ecc71',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '50%',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+                    fontSize: '1.2rem'
+                }}
+            >
+                TIK!
+            </button>
 
-                {isPlaying && (
-                    <button
-                        onClick={() => { stopAllNotes(); setIsPlaying(false); }}
-                        style={{
-                            padding: '12px 24px',
-                            backgroundColor: '#e74c3c',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        STOP
-                    </button>
-                )}
-            </div>
+            <button
+                onClick={() => {
+                    currentIndex.current = 0;
+                    setDisplayStep(0); // Reset weergave
+                }}
+                style={{ marginTop: '10px', background: 'none', border: '1px solid #ccc', cursor: 'pointer', padding: '5px 10px' }}
+            >
+                Reset naar begin
+            </button>
         </div>
     );
 };
