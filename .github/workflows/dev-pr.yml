@@ -24,7 +24,7 @@ jobs:
       - name: Check who is the author
         id: setflag
         run: |
-          if [ "${{ github.actor }}" == "lottesaye" ]; then
+          if [ "${{ github.actor }}" == "lottesaye" ] || [ "${{ github.actor }}" == "Nele324" ]; then
             echo "is_author=true" >> $GITHUB_OUTPUT
           else
             echo "is_author=false" >> $GITHUB_OUTPUT

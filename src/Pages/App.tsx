@@ -5,8 +5,9 @@ import '../css/App.css';
 import Tone from './Tone';
 import Broadcast from './Broadcast';
 import Watch from './Watch';
+import FullScorePlayer from './soundfont';
 
-type Page = 'home' | 'tone' | 'broadcast' | 'watch';
+type Page = 'home' | 'tone' | 'broadcast' | 'watch' | 'sound-player';
 
 function App() {
   const [page, setPage] = useState<Page>('home');
@@ -14,6 +15,7 @@ function App() {
   if (page === 'tone') return <Tone onBack={() => setPage('home')} />;
   if (page === 'broadcast') return <Broadcast onBack={() => setPage('home')} />;
   if (page === 'watch') return <Watch onBack={() => setPage('home')} />;
+  if (page === 'sound-player') return <FullScorePlayer />;
 
   return (
     <div className="App">
@@ -35,8 +37,8 @@ function App() {
         </div>
 
         <div style={{ marginTop: 20 }}>
-          <button onClick={() => setPage('tone')}>
-            Ga naar nieuwe pagina
+          <button onClick={() => setPage('sound-player')}>
+            Ga naar sound player pagina
           </button>
         </div>
       </header>
