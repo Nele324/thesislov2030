@@ -1,46 +1,74 @@
 import React, { useRef, useState } from "react";
-import io from "socket.io-client";
+import { io } from "socket.io-client";
 
-const socket = io(); // change later to ngrok URL
+const socket = io(); // change to ngrok URL if needed
 
-const Broadcast = ({ onBack }: { onBack: () => void }) => {
-    const videoRef = useRef<HTMLVideoElement>(null);
+interface BroadcastProps {
+    onBack: () => void;
+}
+
+const Broadcast: React.FC<BroadcastProps> = ({ onBack }) => {
+    const videoRef = useRef<HTMLVideoElement>(null);       // preview video
+    const fileVideoRef = useRef<HTMLVideoElement | null>(null); // MP4 video
+    const canvasRef = useRef<HTMLCanvasElement>(null);     // canvas for capture
     const peerConnections = useRef<{ [id: string]: RTCPeerConnection }>({});
-    const streamRef = useRef<MediaStream | null>(null);
-    const [started, setStarted] = useState(false);
+    const [streaming, setStreaming] = useState(false);
+    const [animationFrame, setAnimationFrame] = useState<number | null>(null);
 
-    const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+    const startBroadcast = async () => {
+        if (!fileVideoRef.current || !videoRef.current || !canvasRef.current) return;
 
-    const handleStartStreaming = async () => {
-        // 1️⃣ Create/resume AudioContext (fix Tone.js warning)
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        const audioCtx = new AudioContextClass();
-        await audioCtx.resume();
+        const videoEl = fileVideoRef.current;
+        const canvas = canvasRef.current;
 
-        // 2️⃣ Capture camera + mic
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true,
+        await videoEl.play(); // must play first
+
+        const ctx = canvas.getContext("2d")!;
+        canvas.width = videoEl.videoWidth;
+        canvas.height = videoEl.videoHeight;
+
+        // Draw video to canvas continuously
+        const draw = () => {
+            ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+            const id = requestAnimationFrame(draw);
+            setAnimationFrame(id);
+        };
+        draw();
+
+        // Capture MediaStream from canvas
+        // Capture stream from canvas (30 fps)
+        const stream = (canvas as any).captureStream(30) as MediaStream;
+
+        // Add audio track from video (if supported)
+        const audioTracks =
+            (videoEl as any).captureStream?.()?.getAudioTracks() ?? [];
+
+        audioTracks.forEach((track: MediaStreamTrack) => {
+            stream.addTrack(track);
         });
-        streamRef.current = stream;
+
+        // Set preview video
         if (videoRef.current) videoRef.current.srcObject = stream;
 
-        // 3️⃣ Notify server you are broadcaster
         socket.emit("broadcaster");
 
-        // 4️⃣ Handle new viewers
         socket.on("watcher", async (id: string) => {
-            const pc = new RTCPeerConnection(config);
+            const pc = new RTCPeerConnection({
+                iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+            });
             peerConnections.current[id] = pc;
 
             stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
-            socket.emit("offer", id, pc.localDescription);
 
-            pc.onicecandidate = event => {
-                if (event.candidate) socket.emit("candidate", id, event.candidate);
+            socket.emit("offer", id, offer);
+
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit("candidate", id, event.candidate);
+                }
             };
         });
 
@@ -52,22 +80,61 @@ const Broadcast = ({ onBack }: { onBack: () => void }) => {
             peerConnections.current[id]?.addIceCandidate(new RTCIceCandidate(candidate));
         });
 
-        setStarted(true);
+        setStreaming(true);
+    };
+
+    const stopBroadcast = () => {
+        Object.values(peerConnections.current).forEach(pc => pc.close());
+        peerConnections.current = {};
+        socket.connect();
+        setStreaming(false);
+
+        if (animationFrame) cancelAnimationFrame(animationFrame);
+
+        if (fileVideoRef.current) {
+            fileVideoRef.current.pause();
+            fileVideoRef.current.currentTime = 0;
+        }
     };
 
     return (
         <div style={{ padding: 20 }}>
             <h1>Broadcast</h1>
-            {!started && (
-                <button onClick={handleStartStreaming}>Start Streaming (Camera + Audio)</button>
+
+            {!streaming && (
+                <button onClick={startBroadcast}>Start Broadcasting MP4</button>
             )}
+            {streaming && (
+                <button onClick={stopBroadcast}>Stop Broadcast</button>
+            )}
+
+            {/* Offscreen MP4 video */}
+            <video
+
+                ref={fileVideoRef}
+                src="/sample.mp4"
+                muted={false}       // must be unmuted to capture audio
+                playsInline
+                style={{
+                    position: "absolute",
+                    top: "-9999px",
+                    left: "-9999px",
+                }}
+
+            />
+
+            {/* Canvas for capturing video */}
+            <canvas ref={canvasRef} style={{ display: "none" }} />
+
+            {/* Preview video */}
             <video
                 ref={videoRef}
                 autoPlay
-                muted
                 playsInline
-                style={{ marginTop: 20, width: 600 }}
+                muted
+                style={{ width: 600, marginTop: 20 }}
             />
+
             <br />
             <button onClick={onBack} style={{ marginTop: 20 }}>
                 Back
