@@ -106,6 +106,27 @@ npm start
 - **Port 3000 already in use**: Either stop the other process using port 3000 or the development server will prompt you to use a different port
 - **Build errors**: Try deleting `node_modules` and `package-lock.json`, then run `npm install` again
 
+## Testing streaming
+1. Maak een account aan op ngrok en kopieer je Authtoken
+2. Installeer ngrok: 
+```bash
+npm install -g ngrok 
+```
+3. Run dit command met je Authtoken
+```bash
+ngrok config add-authtoken $YOUR_AUTHTOKEN
+```
+4. Run
+```bash
+ngrok http 3001   
+```
+5. Run
+```bash
+node src/server.js 
+```
+6. Ga naar de website die ngrok je gegeven heeft of bij endpoints staat op de ngrok website, open deze op 2 verschillende apparaten om te streamen en te kijken, start eerst met streamen voor je op watch streaming drukt of herlaad de pagina.
+
+
 ## Learn More
 
 You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
