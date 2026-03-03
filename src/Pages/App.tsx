@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import logo from '../logo.svg';
 import '../css/App.css';
-import NewPage from './Tone';
+import FullScorePlayer from './soundfont';
 
 function App() {
-  const [page, setPage] = useState<'home' | 'new'>('home');
+  const [page, setPage] = useState<'home' | 'tone' | 'sound-player'>('home');
 
-  if (page === 'new') {
-    return <NewPage onBack={() => setPage('home')} />;
+  if (page === 'sound-player') {
+    return <FullScorePlayer />;
   }
 
   return (
@@ -15,7 +15,7 @@ function App() {
       <header className="App-header">
         <img src={logo} className="App-logo" alt="logo" />
         <p>
-          Hello 4<code>src/App.tsx</code> world!.
+          Hello<code>src/App.tsx</code> world!.
         </p>
         <a
           className="App-link"
@@ -26,8 +26,8 @@ function App() {
           React yey
         </a>
         <div style={{ marginTop: 16 }}>
-          <button className="App-link" onClick={() => setPage('new')}>
-            Ga naar nieuwe pagina
+          <button className="App-link" onClick={() => setPage('sound-player')}>
+            Ga naar sound player page
           </button>
         </div>
       </header>
