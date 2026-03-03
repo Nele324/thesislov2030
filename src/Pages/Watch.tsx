@@ -4,18 +4,19 @@ import "../css/App.css"; // 👈 same styling as App
 
 const socket = io();
 
+const config = {
+    iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+};
+
 const Watch = ({ onBack }: { onBack: () => void }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const pc = useRef<RTCPeerConnection | null>(null);
 
 
     useEffect(() => {
-        const config = {
-            iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-        };
         socket.emit("watcher");
 
-        socket.on("offer", async (id: string, description: any) => {
+        const handleOffer = async (id: string, description: any) => {
             pc.current = new RTCPeerConnection(config);
 
             pc.current.ontrack = event => {
@@ -36,13 +37,23 @@ const Watch = ({ onBack }: { onBack: () => void }) => {
                     socket.emit("candidate", id, event.candidate);
                 }
             };
-        });
+        };
 
-        socket.on("candidate", (_id: string, candidate: any) => {
-            pc.current?.addIceCandidate(new RTCIceCandidate(candidate));
-        });
+        const handleCandidate = (_id: string, candidate: any) => {
+            if (candidate) {
+                pc.current?.addIceCandidate(new RTCIceCandidate(candidate));
+            }
+        };
+
+        socket.on("offer", handleOffer);
+        socket.on("candidate", handleCandidate);
 
         return () => {
+            // cleanup: remove listeners, close peer connection, disconnect socket
+            socket.off("offer", handleOffer);
+            socket.off("candidate", handleCandidate);
+            pc.current?.close();
+            pc.current = null;
             socket.disconnect();
         };
     }, []);
