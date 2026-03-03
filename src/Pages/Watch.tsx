@@ -45,7 +45,7 @@ const Watch = ({ onBack }: { onBack: () => void }) => {
         return () => {
             socket.disconnect();
         };
-    }, []);
+    }, [config]);
 
     return (
         <div className="App">
