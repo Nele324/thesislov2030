@@ -8,11 +8,11 @@ const Watch = ({ onBack }: { onBack: () => void }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const pc = useRef<RTCPeerConnection | null>(null);
 
-    const config = {
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-    };
 
     useEffect(() => {
+        const config = {
+            iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+        };
         socket.emit("watcher");
 
         socket.on("offer", async (id: string, description: any) => {
@@ -45,7 +45,7 @@ const Watch = ({ onBack }: { onBack: () => void }) => {
         return () => {
             socket.disconnect();
         };
-    }, [config]);
+    }, []);
 
     return (
         <div className="App">
