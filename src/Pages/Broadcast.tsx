@@ -21,6 +21,14 @@ const Broadcast: React.FC<BroadcastProps> = ({ onBack }) => {
         const videoEl = fileVideoRef.current;
         const canvas = canvasRef.current;
 
+        const audioContext = new AudioContext();
+        await audioContext.resume();
+        const source = audioContext.createMediaElementSource(videoEl);
+        const destination = audioContext.createMediaStreamDestination();
+
+        source.connect(destination);
+        source.connect(audioContext.destination);
+
         await videoEl.play(); // must play first
 
         const ctx = canvas.getContext("2d")!;
@@ -40,12 +48,13 @@ const Broadcast: React.FC<BroadcastProps> = ({ onBack }) => {
         const stream = (canvas as any).captureStream(30) as MediaStream;
 
         // Add audio track from video (if supported)
-        const audioTracks =
-            (videoEl as any).captureStream?.()?.getAudioTracks() ?? [];
 
-        audioTracks.forEach((track: MediaStreamTrack) => {
+
+        destination.stream.getAudioTracks().forEach((track: MediaStreamTrack) => {
             stream.addTrack(track);
         });
+
+        console.log(stream.getTracks());
 
         // Set preview video
         if (videoRef.current) videoRef.current.srcObject = stream;
