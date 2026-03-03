@@ -1,16 +1,17 @@
 import React, { useRef, useState } from "react";
 import { io } from "socket.io-client";
+import "../css/App.css"; // 👈 add this
 
-const socket = io(); // change to ngrok URL if needed
+const socket = io();
 
 interface BroadcastProps {
     onBack: () => void;
 }
 
 const Broadcast: React.FC<BroadcastProps> = ({ onBack }) => {
-    const videoRef = useRef<HTMLVideoElement>(null);       // preview video
-    const fileVideoRef = useRef<HTMLVideoElement | null>(null); // MP4 video
-    const canvasRef = useRef<HTMLCanvasElement>(null);     // canvas for capture
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const fileVideoRef = useRef<HTMLVideoElement | null>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
     const peerConnections = useRef<{ [id: string]: RTCPeerConnection }>({});
     const [streaming, setStreaming] = useState(false);
     const [animationFrame, setAnimationFrame] = useState<number | null>(null);
@@ -27,15 +28,13 @@ const Broadcast: React.FC<BroadcastProps> = ({ onBack }) => {
         const destination = audioContext.createMediaStreamDestination();
 
         source.connect(destination);
-        source.connect(audioContext.destination);
 
-        await videoEl.play(); // must play first
+        await videoEl.play();
 
         const ctx = canvas.getContext("2d")!;
         canvas.width = videoEl.videoWidth;
         canvas.height = videoEl.videoHeight;
 
-        // Draw video to canvas continuously
         const draw = () => {
             ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
             const id = requestAnimationFrame(draw);
@@ -43,20 +42,12 @@ const Broadcast: React.FC<BroadcastProps> = ({ onBack }) => {
         };
         draw();
 
-        // Capture MediaStream from canvas
-        // Capture stream from canvas (30 fps)
         const stream = (canvas as any).captureStream(30) as MediaStream;
-
-        // Add audio track from video (if supported)
-
 
         destination.stream.getAudioTracks().forEach((track: MediaStreamTrack) => {
             stream.addTrack(track);
         });
 
-        console.log(stream.getTracks());
-
-        // Set preview video
         if (videoRef.current) videoRef.current.srcObject = stream;
 
         socket.emit("broadcaster");
@@ -107,47 +98,59 @@ const Broadcast: React.FC<BroadcastProps> = ({ onBack }) => {
     };
 
     return (
-        <div style={{ padding: 20 }}>
-            <h1>Broadcast</h1>
+        <div className="App">
+            <header className="App-header">
 
-            {!streaming && (
-                <button onClick={startBroadcast}>Start Broadcasting MP4</button>
-            )}
-            {streaming && (
-                <button onClick={stopBroadcast}>Stop Broadcast</button>
-            )}
+                <h2>Broadcast Mode</h2>
 
-            {/* Offscreen MP4 video */}
-            <video
+                {!streaming && (
+                    <div style={{ marginTop: 20 }}>
+                        <button onClick={startBroadcast}>
+                            Start Broadcasting MP4
+                        </button>
+                    </div>
+                )}
 
-                ref={fileVideoRef}
-                src="/sample.mp4"
-                muted={false}       // must be unmuted to capture audio
-                playsInline
-                style={{
-                    position: "absolute",
-                    top: "-9999px",
-                    left: "-9999px",
-                }}
+                {streaming && (
+                    <div style={{ marginTop: 20 }}>
+                        <button onClick={stopBroadcast}>
+                            Stop Broadcast
+                        </button>
+                    </div>
+                )}
 
-            />
+                {/* Preview video */}
+                <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    style={{ width: 600, marginTop: 30 }}
+                />
 
-            {/* Canvas for capturing video */}
-            <canvas ref={canvasRef} style={{ display: "none" }} />
+                <div style={{ marginTop: 30 }}>
+                    <button onClick={onBack}>
+                        Back
+                    </button>
+                </div>
 
-            {/* Preview video */}
-            <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                style={{ width: 600, marginTop: 20 }}
-            />
+                {/* Offscreen MP4 video */}
+                <video
+                    ref={fileVideoRef}
+                    src="/sample.mp4"
+                    muted={false}
+                    playsInline
+                    style={{
+                        position: "absolute",
+                        top: "-9999px",
+                        left: "-9999px",
+                    }}
+                />
 
-            <br />
-            <button onClick={onBack} style={{ marginTop: 20 }}>
-                Back
-            </button>
+                {/* Canvas for capturing video */}
+                <canvas ref={canvasRef} style={{ display: "none" }} />
+
+            </header>
         </div>
     );
 };
