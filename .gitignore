@@ -441,3 +441,7 @@ yarn-debug.log*
 yarn-error.log*
 .vercel
 .env*.local
+
+public/Eine kleine Nachtmusik.mp4
+public/piratesOrchestra.mp4
+public/piratesPiano.mp4
