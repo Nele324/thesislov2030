@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Soundfont from 'soundfont-player';
 import { Midi } from '@tonejs/midi';
-import YouTube from 'react-youtube'; // Installeer via: npm install react-youtube
 
 const FullScorePlayer = () => {
     const [player, setPlayer] = useState(null);
@@ -11,12 +10,12 @@ const FullScorePlayer = () => {
     const [displayStep, setDisplayStep] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
 
-    const [videoVolume] = useState(40); // 40%
+    const [videoVolume] = useState(0.4); // 40%
     const [saxVolume] = useState(2.5);    // 250%
 
     // Refs voor de strakke tijdlijn
     const containerRef = useRef();
-    const videoPlayerRef = useRef(null);
+    const videoRef = useRef(null);
     const requestRef = useRef();
     const isKeyDown = useRef(false);
     const activeNoteEvent = useRef(null);
@@ -24,7 +23,7 @@ const FullScorePlayer = () => {
     const audioContext = useRef(new (window.AudioContext || window.webkitAudioContext)());
 
     const PIXELS_PER_SECOND = 200;
-    const HIT_LINE_X = 100; // Positie van de rode lijn
+    const HIT_LINE_X = 100;
 
     const getSaxNootNaam = (midiNumber) => {
         const namen = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"];
@@ -58,10 +57,10 @@ const FullScorePlayer = () => {
 
     // De Game Loop: Loopt ALTIJD door als de video speelt
     const animate = useCallback(() => {
-        if (!videoPlayerRef.current || !isPlaying) return;
+        if (!videoRef.current || !isPlaying) return;
 
         // We trekken de offset af van de videotijd voor de logica van de blokjes
-        const videoTime = videoPlayerRef.current.getCurrentTime();
+        const videoTime = videoRef.current.currentTime;
         const currentTime = videoTime - TIME_OFFSET;
 
         // Update visuele blokjes
@@ -94,7 +93,7 @@ const FullScorePlayer = () => {
         }
 
         requestRef.current = requestAnimationFrame(animate);
-    }, [isPlaying, noteGroups, player]);
+    }, [isPlaying, noteGroups, player, saxVolume]);
 
     const updateBlockPositions = (time) => {
         if (!containerRef.current) return;
@@ -125,12 +124,12 @@ const FullScorePlayer = () => {
     }, []);
 
     useEffect(() => {
-        if (videoPlayerRef.current) {
-            videoPlayerRef.current.setVolume(videoVolume);
+        if (videoRef.current) {
+            videoRef.current.volume = videoVolume;
         }
-    }, [videoVolume, isPlaying]);
+    }, [videoVolume]);
 
-    const onVideoReady = (event) => { videoPlayerRef.current = event.target; };
+    //const onVideoReady = (event) => { videoPlayerRef.current = event.target; };
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px', backgroundColor: '#111', minHeight: '100vh', color: 'white' }}>
@@ -139,13 +138,14 @@ const FullScorePlayer = () => {
 
                 {/* LINKS: De Video */}
                 <div style={{ flex: 1, borderRadius: '10px', overflow: 'hidden', border: '2px solid #333' }}>
-                    <YouTube
-                        videoId="SENQbJY5U60" // Pirate track (pas aan indien nodig)
-                        opts={{ width: '100%', height: '360', playerVars: { autoplay: 0, controls: 1, modestbranding: 1, rel: 0, origin: window.location.origin } }}
-                        onReady={onVideoReady}
+                    <video
+                        ref={videoRef}
+                        src="pirates.mp4"
+                        style={{ width: '100%', display: 'block' }}
+                        controls
                         onPlay={() => setIsPlaying(true)}
                         onPause={() => setIsPlaying(false)}
-                        onEnd={() => setIsPlaying(false)}
+                        onEnded={() => setIsPlaying(false)}
                     />
                 </div>
 
