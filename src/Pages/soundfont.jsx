@@ -13,7 +13,7 @@ const FullScorePlayer = () => {
     const [dynamicOffset, setDynamicOffset] = useState(0); // Default, maar wordt overschreven
     const [isMuziekGevonden, setIsMuziekGevonden] = useState(false);
     const [debugData, setDebugData] = useState({ rms: 0, centroid: 0 });
-    const [videoSrc, setVideoSrc] = useState("");
+    //const [videoSrc, setVideoSrc] = useState("");
 
     const [videoVolume] = useState(0.4); // 40%
     const [saxVolume] = useState(2.5);    // 250%
@@ -30,6 +30,13 @@ const FullScorePlayer = () => {
     const essentiaRef = useRef(null);
     const audioSourceRef = useRef(null);
     const analyzerRef = useRef(null);
+    const stableFramesRef = useRef(0);
+
+    const rmsBufferRef = useRef([]);
+    const centroidBufferRef = useRef([]);
+    const BUFFER_SIZE = 10;
+
+    const lastAnalysisTimeRef = useRef(0);
 
     const PIXELS_PER_SECOND = 200;
     const HIT_LINE_X = 100;
@@ -73,9 +80,10 @@ const FullScorePlayer = () => {
         });
     }, []);
 
+    /*
     useEffect(() => {
         // Haal de video op als een blob om CORS volledig te omzeilen
-        fetch("/Eine kleine Nachtmusik.mp4")
+        fetch("/Howtotrainyourdragonwithapplouse.mp4")
             .then(response => response.blob())
             .then(blob => {
                 const url = URL.createObjectURL(blob);
@@ -83,8 +91,7 @@ const FullScorePlayer = () => {
             })
             .catch(err => console.error("Video laden mislukt:", err));
     }, []);
-
-    //const TIME_OFFSET = 11.85;
+    */
 
     const setupAudioAnalysis = () => {
         if (!videoRef.current || audioSourceRef.current || !essentiaRef.current) return;
@@ -122,49 +129,80 @@ const FullScorePlayer = () => {
 
         if (!videoRef.current || !isPlaying) return;
 
+        const now = performance.now();
+
         // --- ESSENTIA LOGICA ---
         if (analyzerRef.current && essentiaRef.current && !isMuziekGevonden) {
-            const bufferLength = analyzerRef.current.frequencyBinCount;
-            const dataArray = new Float32Array(bufferLength);
-            analyzerRef.current.getFloatTimeDomainData(dataArray);
+            if (now - lastAnalysisTimeRef.current > 50) {
+                lastAnalysisTimeRef.current = now
 
-            try {
+                const bufferLength = analyzerRef.current.frequencyBinCount;
+                const dataArray = new Float32Array(bufferLength);
+                analyzerRef.current.getFloatTimeDomainData(dataArray);
+
+                //try {
                 const vectorData = essentiaRef.current.arrayToVector(dataArray);
 
-                // Gebruik de 'backend' eigenschap om de algoritmes direct aan te spreken
-                // Dit omzeilt de "Cannot read properties of undefined (reading 'algorithms')" fout
-                const rmsAlgorithm = essentiaRef.current.backend.RMS();
-                const rmsResult = rmsAlgorithm.compute(vectorData);
-                const rmsValue = rmsResult.rms; // Bij directe compute() is de output vaak een object {rms: ...}
+                const rmsRes = essentiaRef.current.RMS(vectorData);
+                const rmsValue = rmsRes.rms;
+
+                rmsBufferRef.current.push(rmsValue);
+                if (rmsBufferRef.current.length > BUFFER_SIZE) {
+                    rmsBufferRef.current.shift(); // Verwijder de oudste sample
+                }
+                const avgRMS = rmsBufferRef.current.reduce((a, b) => a + b, 0) / rmsBufferRef.current.length;
+
+                const specRes = essentiaRef.current.Spectrum(vectorData);
+                const centRes = essentiaRef.current.Centroid(specRes.spectrum);
+                const centroidValue = centRes.centroid !== undefined ? centRes.centroid :
+                    (centRes.spectralCentroid !== undefined ? centRes.spectralCentroid : 0);
+                centroidBufferRef.current.push(centroidValue);
+                if (centroidBufferRef.current.length > BUFFER_SIZE) {
+                    centroidBufferRef.current.shift(); // Verwijder de oudste sample
+                }
+                const avgCentroid = centroidBufferRef.current.reduce((a, b) => a + b, 0) / centroidBufferRef.current.length;
+
 
                 if (Math.random() > 0.98) {
-                    setDebugData({ rms: rmsValue, centroid: 0 });
+                    setDebugData({ rms: avgRMS, centroid: centroidValue });
                 }
+                console.log("RMS:", avgRMS.toFixed(4), "Centroid:", avgCentroid.toFixed(5), "Video Time:", videoRef.current.currentTime.toFixed(2));
 
-                // TRIGGER: 0.010 is de drempel voor de start van de muziek
-                if (rmsValue > 0.008) {
-                    console.log("🎵 MUZIEK GEVONDEN! RMS:", rmsValue);
-                    setDynamicOffset(videoRef.current.currentTime - 0.1);
-                    setIsMuziekGevonden(true);
+                if (avgRMS > 0.0065 && avgCentroid > 0.02 && avgCentroid < 0.10 && videoRef.current.currentTime > 10) {
+                    stableFramesRef.current += 1;
+                    console.log("stableFramesRef:", stableFramesRef.current);
+
+                    if (stableFramesRef.current > 2) {
+                        // Vereist 5 opeenvolgende frames boven de drempel voor stabiliteit
+                        console.log("🎵 MUZIEK GEVONDEN! RMS:", { rms: avgRMS, centroid: avgCentroid });
+                        setDynamicOffset(videoRef.current.currentTime - 0.1);
+                        setIsMuziekGevonden(true);
+                    }
+                } else {
+                    if (stableFramesRef.current > 0) {
+                        stableFramesRef.current -= 1;
+                        console.log("stableframesref - 1")
+                    }
                 }
 
                 // Ruim direct op
-                essentiaRef.current.deleteVector(vectorData);
-                // Directe algoritme-instanties moeten ook opgeruimd worden in sommige versies
-                if (rmsAlgorithm.delete) rmsAlgorithm.delete();
+                if (vectorData) vectorData.delete();
+                if (rmsRes && rmsRes.delete) rmsRes.delete();
+                if (specRes && specRes.delete) specRes.delete();
 
-            } catch (err) {
-                // Als de backend-methode ook faalt, probeer de simpelste JS fallback 
-                // zodat je project in ieder geval werkt:
-                const simpleRMS = Math.sqrt(dataArray.reduce((acc, val) => acc + val * val, 0) / dataArray.length);
-
-                if (simpleRMS > 0.008) {
-                    setDynamicOffset(videoRef.current.currentTime - 0.1);
-                    setIsMuziekGevonden(true);
-                    console.log("🎵 Muziek gevonden via fallback! RMS:", simpleRMS);
-                }
-
-                if (Math.random() > 0.98) setDebugData({ rms: simpleRMS, centroid: 0 });
+                /*} catch (err) {
+                    // Als de backend-methode ook faalt, probeer de simpelste JS fallback 
+                    // zodat je project in ieder geval werkt:
+                    const simpleRMS = Math.sqrt(dataArray.reduce((acc, val) => acc + val * val, 0) / dataArray.length);
+     
+                    if (simpleRMS > 0.008 && videoRef.current.currentTime > 2) {
+                        setDynamicOffset(videoRef.current.currentTime - 0.1);
+                        setIsMuziekGevonden(true);
+                        console.log("🎵 Muziek gevonden via fallback! RMS:", simpleRMS);
+                    }
+     
+                    if (Math.random() > 0.98) setDebugData({ rms: simpleRMS, centroid: 0 });
+                }*/
             }
         }
 
@@ -263,24 +301,24 @@ const FullScorePlayer = () => {
             <div style={{ display: 'flex', gap: '20px', width: '100%', maxWidth: '1200px', justifyContent: 'center', alignItems: 'flex-start' }}>
                 {/* LINKS: De Video */}
                 <div style={{ flex: 1, borderRadius: '10px', overflow: 'hidden', border: '2px solid #333' }}>
-                    {videoSrc && (
-                        <video
-                            ref={videoRef}
-                            src={videoSrc}
-                            crossOrigin='anonymous'
-                            style={{ width: '100%', display: 'block' }}
-                            controls
-                            onLoadedMetadata={setupAudioAnalysis}
-                            onPlay={() => {
-                                if (audioContext.current.state === 'suspended') {
-                                    audioContext.current.resume();
-                                }
-                                setIsPlaying(true);
-                            }}
-                            onPause={() => setIsPlaying(false)}
-                            onEnded={() => setIsPlaying(false)}
-                        />
-                    )}
+
+                    <video
+                        ref={videoRef}
+                        src="/Howtotrainyourdragonwithapplouse.mp4"
+                        crossOrigin='anonymous'
+                        style={{ width: '100%', display: 'block' }}
+                        controls
+                        onLoadedMetadata={setupAudioAnalysis}
+                        onPlay={() => {
+                            if (audioContext.current.state === 'suspended') {
+                                audioContext.current.resume();
+                            }
+                            setIsPlaying(true);
+                        }}
+                        onPause={() => setIsPlaying(false)}
+                        onEnded={() => setIsPlaying(false)}
+                    />
+
                 </div>
 
                 {/* RECHTS: De Tijdlijn en info */}
