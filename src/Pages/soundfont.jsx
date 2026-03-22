@@ -65,7 +65,7 @@ const FullScorePlayer = () => {
                 setIsPlayerReady(true);
             });
 
-        Midi.fromUrl("/scores/He's_a_pirate.mid").then((midi) => {
+        Midi.fromUrl("/scores/How_to_train_your_dragon.mid").then((midi) => {
             const allNotes = midi.tracks[0].notes.filter(n => n.duration > 0.05);
             const groups = allNotes.map((note, i) => ({
                 time: note.time,
@@ -168,11 +168,11 @@ const FullScorePlayer = () => {
                 }
                 console.log("RMS:", avgRMS.toFixed(4), "Centroid:", avgCentroid.toFixed(5), "Video Time:", videoRef.current.currentTime.toFixed(2));
 
-                if (avgRMS > 0.0065 && avgCentroid > 0.02 && avgCentroid < 0.10 && videoRef.current.currentTime > 10) {
+                if (avgRMS > 0.0030 && avgCentroid > 0.02 && avgCentroid < 0.10 && videoRef.current.currentTime > 10) {
                     stableFramesRef.current += 1;
                     console.log("stableFramesRef:", stableFramesRef.current);
 
-                    if (stableFramesRef.current > 2) {
+                    if (stableFramesRef.current > 4) {
                         // Vereist 5 opeenvolgende frames boven de drempel voor stabiliteit
                         console.log("🎵 MUZIEK GEVONDEN! RMS:", { rms: avgRMS, centroid: avgCentroid });
                         setDynamicOffset(videoRef.current.currentTime - 0.1);
