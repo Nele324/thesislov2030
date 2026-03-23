@@ -88,12 +88,18 @@ const FullScorePlayer = () => {
         // 2. STOP LOGICA
         // Stop als de tijd van de noot voorbij is (ongeacht of de toets nog in is)
         // OF als de gebruiker de toets loslaat
-        if (nowNoteIndex === -1 || !isKeyDown.current) {
-            if (activeNoteEvent.current) {
+        if (activeNoteEvent.current) {
+            const currentNote = noteGroups[currentNoteIndexRef.current];
+
+            // Stop de noot in drie scenario's:
+            // 1. De tijdlijn is voorbij de duur van de noot (currentTime > start + duration)
+            // 2. De gebruiker laat de spatiebalk los (!isKeyDown.current)
+            // 3. Er is geen actieve noot-zone meer (nowNoteIndex === -1)
+            if (currentTime > (currentNote.time + currentNote.duration) || !isKeyDown.current || nowNoteIndex === -1) {
                 activeNoteEvent.current.stop();
                 activeNoteEvent.current = null;
-                // We resetten currentNoteIndexRef NIET naar -1 bij loslaten, 
-                // zodat je niet 10x dezelfde noot kunt 'triggeren' binnen één zone.
+                // We resetten hasPlayedCurrentNote NIET, want de toets is mogelijk nog ingedrukt.
+                // De KeyUp event zal dit later op false zetten voor de volgende noot.
             }
         }
 
