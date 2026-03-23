@@ -38,7 +38,8 @@ const FullScorePlayer = () => {
         1: { partij: 'achtergrond', forgiveness: 'high', keys: 1 },
         2: { partij: 'melodie', forgiveness: 'low', keys: 2 },
         3: { partij: 'achtergrond', forgiveness: 'low', keys: 2 },
-        4: { partij: 'melodie', forgiveness: 'high', keys: 4 }
+        4: { partij: 'melodie', forgiveness: 'high', keys: 4 },
+        5: { partij: 'achtergrond', forgiveness: 'high', keys: 4 }
     };
 
     const FORGIVENESS_MARGIN = 0.15; // 150ms marge voor 'low' forgiveness
@@ -293,6 +294,7 @@ const FullScorePlayer = () => {
                                 <option value="2">Test 2</option>
                                 <option value="3">Test 3</option>
                                 <option value="4">Test 4</option>
+                                <option value="5">Test 5</option>
                             </select>
                         </div>
                         <p>Status: {isPlayerReady && isMidiReady ? "Video starten om te beginnen" : "Laden..."}</p>
