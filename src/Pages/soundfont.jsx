@@ -19,16 +19,25 @@ const FullScorePlayer = () => {
     const requestRef = useRef();
     const isKeyDown = useRef(false);
     const activeNoteEvent = useRef(null);
-    const currentNoteIndexRef = useRef(0);
+    const currentNoteIndexRef = useRef(-1);
     const audioContext = useRef(new (window.AudioContext || window.webkitAudioContext)());
+    const hasPlayedCurrentNote = useRef(false);
 
     const PIXELS_PER_SECOND = 200;
     const HIT_LINE_X = 100;
 
-    const hasPlayedCurrentNote = useRef(false);
+    const TEST_CONFIGS = {
+        1: { partij: 'achtergrond', forgiveness: 'high' },
+        2: { partij: 'melodie', forgiveness: 'low' },
+        3: { partij: 'achtergrond', forgiveness: 'low' },
+        4: { partij: 'melodie', forgiveness: 'high' }
+    };
+
+    const ACTIVE_TEST_ID = 2; // Pas dit getal aan om te testen
+    const FORGIVENESS_MARGIN = 0.15; // 150ms marge voor 'low' forgiveness
 
     const getSaxNootNaam = (midiNumber) => {
-        const namen = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"];
+        const namen = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "Sib", "Si"];
         const index = midiNumber % 12;
         return namen[index];
     };
@@ -44,8 +53,8 @@ const FullScorePlayer = () => {
             const allNotes = midi.tracks[0].notes.filter(n => n.duration > 0.05);
             const groups = allNotes.map((note, i) => ({
                 time: note.time,
-                duration: note.duration,
-                weergaveNaam: getSaxNootNaam(note.midi - 3),
+                duration: Math.max(note.duration - 0.05, 0.05),
+                weergaveNaam: getSaxNootNaam(note.midi + 2),
                 klinkendeNaam: note.name,
                 velocity: note.velocity,
                 id: `note-${i}`
@@ -55,15 +64,17 @@ const FullScorePlayer = () => {
         });
     }, []);
 
-    const OFFSET = 33.575;
+    const OFFSET = 4.8;
 
     // Pas je animate functie aan in soundfont.jsx:
 
     const animate = useCallback(() => {
         if (!videoRef.current || !isPlaying) return;
 
+        const config = TEST_CONFIGS[ACTIVE_TEST_ID];
         const videoTime = videoRef.current.currentTime;
         const currentTime = videoTime - OFFSET;
+        console.log(`Video Time: ${videoTime.toFixed(3)}`);
 
         updateBlockPositions(currentTime);
 
@@ -74,14 +85,29 @@ const FullScorePlayer = () => {
         // 1. START LOGICA
         // Je moet de toets indrukken EN de noot mag nog niet gespeeld zijn met de huidige toetsaanslag
         if (isKeyDown.current && !hasPlayedCurrentNote.current && nowNoteIndex !== -1) {
-            // Alleen starten als we deze specifieke noot-index bereiken
-            if (currentNoteIndexRef.current !== nowNoteIndex) {
-                const note = noteGroups[nowNoteIndex];
-                activeNoteEvent.current = player.play(note.klinkendeNaam, audioContext.current.currentTime, { gain: saxVolume });
+            const note = noteGroups[nowNoteIndex];
 
+            // Check voor Vergevingsgezindheid
+            let canPlay = false;
+            if (config.forgiveness === 'high') {
+                // Hoog: Altijd spelen als je binnen de noot-tijd duwt
+                canPlay = true;
+            } else {
+                // Laag: Alleen spelen als je dicht bij het beginpunt (time) duwt
+                const timingError = Math.abs(currentTime - note.time);
+                if (timingError <= FORGIVENESS_MARGIN) {
+                    canPlay = true;
+                }
+            }
+
+            if (canPlay && currentNoteIndexRef.current !== nowNoteIndex) {
+                activeNoteEvent.current = player.play(note.klinkendeNaam, audioContext.current.currentTime, { gain: saxVolume });
                 currentNoteIndexRef.current = nowNoteIndex;
-                hasPlayedCurrentNote.current = true; // LOCK: De gebruiker moet nu eerst loslaten
+                hasPlayedCurrentNote.current = true;
                 setDisplayStep(nowNoteIndex);
+            } else if (!canPlay) {
+                // Als men te laat is bij 'low', markeren we de noot als 'gemist' voor deze toetsaanslag
+                hasPlayedCurrentNote.current = true;
             }
         }
 
@@ -150,7 +176,7 @@ const FullScorePlayer = () => {
 
                     <video
                         ref={videoRef}
-                        src="/Howtotrainyourdragonwithapplouse.mp4"
+                        src="/HowToTrainYourDragon.mp4"
                         crossOrigin='anonymous'
                         style={{ width: '100%', display: 'block' }}
                         controls
@@ -167,6 +193,7 @@ const FullScorePlayer = () => {
                         <h3>Dashboard</h3>
                         <p>Status: {isPlayerReady && isMidiReady ? "Video starten om te beginnen" : "Laden..."}</p>
                         <p style={{ fontSize: '1.2rem' }}>Volgende greep: <strong style={{ color: '#f1c40f' }}>{noteGroups[displayStep]?.weergaveNaam || "-"}</strong></p>
+                        <p style={{ fontSize: '0.9rem', color: '#888' }}>Test Config: Partij = <strong>{TEST_CONFIGS[ACTIVE_TEST_ID].partij}</strong>, Vergevingsgezindheid = <strong>{TEST_CONFIGS[ACTIVE_TEST_ID].forgiveness}</strong></p>
                     </div>
 
                     <div ref={containerRef} style={{ width: '100%', height: '120px', backgroundColor: '#000', position: 'relative', overflow: 'hidden', border: '2px solid #ff4757', borderRadius: '8px' }}>
