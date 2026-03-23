@@ -23,6 +23,7 @@ const FullScorePlayer = () => {
     const currentNoteIndexRef = useRef(-1);
     const audioContext = useRef(new (window.AudioContext || window.webkitAudioContext)());
     const hasPlayedCurrentNote = useRef(false);
+    const instrumentNameRef = useRef(null);
 
     const PIXELS_PER_SECOND = 200;
     const HIT_LINE_X = 100;
@@ -43,26 +44,44 @@ const FullScorePlayer = () => {
     };
 
     useEffect(() => {
-        Soundfont.instrument(audioContext.current, 'soprano_sax', { soundfont: 'MusyngKite' })
+        setIsPlayerReady(false);
+        setIsMidiReady(false);
+
+        let link = "";
+        let transposition = 0;
+
+        if (activeTestId === 2 || activeTestId === 4) {
+            instrumentNameRef.current = 'soprano_sax';
+            link = "/scores/How_to_train_your_dragon.mid"
+            transposition = -2;
+        } else {
+            instrumentNameRef.current = 'baritone_sax';
+            link = "/scores/How_to_train_your_dragon-bariton.mid"
+            transposition = -3;
+        }
+        Soundfont.instrument(audioContext.current, instrumentNameRef.current, { soundfont: 'MusyngKite' })
             .then((inst) => {
                 setPlayer(inst);
                 setIsPlayerReady(true);
             });
 
-        Midi.fromUrl("/scores/How_to_train_your_dragon.mid").then((midi) => {
-            const allNotes = midi.tracks[0].notes.filter(n => n.duration > 0.05);
+        Midi.fromUrl(link).then((midi) => {
+            const track = midi.tracks.find(t => t.notes.length > 0) || midi.tracks[0];
+            const allNotes = track.notes.filter(n => n.duration > 0.05);
             const groups = allNotes.map((note, i) => ({
                 time: note.time,
                 duration: Math.max(note.duration - 0.05, 0.05),
-                weergaveNaam: getSaxNootNaam(note.midi + 2),
+                weergaveNaam: getSaxNootNaam(note.midi + transposition),
                 klinkendeNaam: note.name,
                 velocity: note.velocity,
-                id: `note-${i}`
+                id: `note-${i}-${activeTestId}`
             }));
             setNoteGroups(groups);
             setIsMidiReady(true);
+            setDisplayStep(0);
+            currentNoteIndexRef.current = -1;
         });
-    }, []);
+    }, [activeTestId]);
 
     const OFFSET = 4.8;
 
@@ -74,7 +93,7 @@ const FullScorePlayer = () => {
         const config = TEST_CONFIGS[activeTestId];
         const videoTime = videoRef.current.currentTime;
         const currentTime = videoTime - OFFSET;
-        console.log(`Video Time: ${videoTime.toFixed(3)}`);
+        //console.log(`Video Time: ${videoTime.toFixed(3)}`);
 
         updateBlockPositions(currentTime);
 
@@ -198,7 +217,7 @@ const FullScorePlayer = () => {
                             <select
                                 id="test-select"
                                 value={activeTestId}
-                                onChange={(e) => setActiveTestId(parseInt(e.target.value))}
+                                onChange={(e) => { setActiveTestId(parseInt(e.target.value)); console.log(`Test scenario gewijzigd naar: ${e.target.value}`); console.log(instrumentNameRef.current) }}
                                 style={{
                                     width: '100%',
                                     padding: '8px',
