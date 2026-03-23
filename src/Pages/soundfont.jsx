@@ -25,6 +25,8 @@ const FullScorePlayer = () => {
     const PIXELS_PER_SECOND = 200;
     const HIT_LINE_X = 100;
 
+    const hasPlayedCurrentNote = useRef(false);
+
     const getSaxNootNaam = (midiNumber) => {
         const namen = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"];
         const index = midiNumber % 12;
@@ -55,41 +57,43 @@ const FullScorePlayer = () => {
 
     const OFFSET = 33.575;
 
-    // De Game Loop: Loopt ALTIJD door als de video speelt
+    // Pas je animate functie aan in soundfont.jsx:
+
     const animate = useCallback(() => {
         if (!videoRef.current || !isPlaying) return;
 
-        // We trekken de offset af van de videotijd voor de logica van de blokjes
         const videoTime = videoRef.current.currentTime;
         const currentTime = videoTime - OFFSET;
-        console.log(`Video Time: ${videoTime.toFixed(2)}s, Logic Time: ${currentTime.toFixed(2)}s`);
 
-        // Update visuele blokjes
         updateBlockPositions(currentTime);
 
-        // Check welke noot er NU bij de rode lijn zou moeten zijn
         const nowNoteIndex = noteGroups.findIndex(n =>
             currentTime >= n.time && currentTime <= (n.time + n.duration)
         );
 
-        // LOGICA: Speel alleen geluid als de toets is ingedrukt EN we in een noot-zone zitten
-        if (isKeyDown.current && nowNoteIndex !== -1) {
-            if (!activeNoteEvent.current || currentNoteIndexRef.current !== nowNoteIndex) {
-                // Stop vorige noot als die er nog was
-                if (activeNoteEvent.current) activeNoteEvent.current.stop();
-
-                // Start nieuwe noot
+        // 1. START LOGICA
+        // Je moet de toets indrukken EN de noot mag nog niet gespeeld zijn met de huidige toetsaanslag
+        if (isKeyDown.current && !hasPlayedCurrentNote.current && nowNoteIndex !== -1) {
+            // Alleen starten als we deze specifieke noot-index bereiken
+            if (currentNoteIndexRef.current !== nowNoteIndex) {
                 const note = noteGroups[nowNoteIndex];
                 activeNoteEvent.current = player.play(note.klinkendeNaam, audioContext.current.currentTime, { gain: saxVolume });
+
                 currentNoteIndexRef.current = nowNoteIndex;
+                hasPlayedCurrentNote.current = true; // LOCK: De gebruiker moet nu eerst loslaten
                 setDisplayStep(nowNoteIndex);
             }
-        } else {
-            // Geen toets ingedrukt of geen noot onder de lijn -> Stilte
+        }
+
+        // 2. STOP LOGICA
+        // Stop als de tijd van de noot voorbij is (ongeacht of de toets nog in is)
+        // OF als de gebruiker de toets loslaat
+        if (nowNoteIndex === -1 || !isKeyDown.current) {
             if (activeNoteEvent.current) {
                 activeNoteEvent.current.stop();
                 activeNoteEvent.current = null;
-                currentNoteIndexRef.current = -1;
+                // We resetten currentNoteIndexRef NIET naar -1 bij loslaten, 
+                // zodat je niet 10x dezelfde noot kunt 'triggeren' binnen één zone.
             }
         }
 
@@ -118,7 +122,7 @@ const FullScorePlayer = () => {
     // Toetsenbord Events
     useEffect(() => {
         const handleKeyDown = (e) => { if (e.code === 'Space') { e.preventDefault(); isKeyDown.current = true; } };
-        const handleKeyUp = (e) => { if (e.code === 'Space') { e.preventDefault(); isKeyDown.current = false; } };
+        const handleKeyUp = (e) => { if (e.code === 'Space') { e.preventDefault(); isKeyDown.current = false; hasPlayedCurrentNote.current = false; } };
         window.addEventListener('keydown', handleKeyDown);
         window.addEventListener('keyup', handleKeyUp);
         return () => { window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp); };
