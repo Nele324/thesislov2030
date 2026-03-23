@@ -9,6 +9,7 @@ const FullScorePlayer = () => {
     const [isMidiReady, setIsMidiReady] = useState(false);
     const [displayStep, setDisplayStep] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [activeTestId, setActiveTestId] = useState(1);
 
     const [videoVolume] = useState(0.75); // 75%
     const [saxVolume] = useState(0.5);    // 50%
@@ -33,7 +34,6 @@ const FullScorePlayer = () => {
         4: { partij: 'melodie', forgiveness: 'high' }
     };
 
-    const ACTIVE_TEST_ID = 2; // Pas dit getal aan om te testen
     const FORGIVENESS_MARGIN = 0.15; // 150ms marge voor 'low' forgiveness
 
     const getSaxNootNaam = (midiNumber) => {
@@ -71,7 +71,7 @@ const FullScorePlayer = () => {
     const animate = useCallback(() => {
         if (!videoRef.current || !isPlaying) return;
 
-        const config = TEST_CONFIGS[ACTIVE_TEST_ID];
+        const config = TEST_CONFIGS[activeTestId];
         const videoTime = videoRef.current.currentTime;
         const currentTime = videoTime - OFFSET;
         console.log(`Video Time: ${videoTime.toFixed(3)}`);
@@ -130,7 +130,7 @@ const FullScorePlayer = () => {
         }
 
         requestRef.current = requestAnimationFrame(animate);
-    }, [isPlaying, noteGroups, player, saxVolume]);
+    }, [isPlaying, noteGroups, player, saxVolume, activeTestId]);
 
     const updateBlockPositions = (time) => {
         if (!containerRef.current) return;
@@ -191,9 +191,33 @@ const FullScorePlayer = () => {
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     <div style={{ padding: '15px', backgroundColor: '#222', borderRadius: '10px', border: '1px solid #444' }}>
                         <h3>Dashboard</h3>
+                        <div style={{ marginBottom: '15px' }}>
+                            <label htmlFor="test-select" style={{ display: 'block', marginBottom: '5px', fontSize: '0.8rem', color: '#888' }}>
+                                Selecteer Test Scenario:
+                            </label>
+                            <select
+                                id="test-select"
+                                value={activeTestId}
+                                onChange={(e) => setActiveTestId(parseInt(e.target.value))}
+                                style={{
+                                    width: '100%',
+                                    padding: '8px',
+                                    backgroundColor: '#333',
+                                    color: 'white',
+                                    border: '1px solid #555',
+                                    borderRadius: '5px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <option value="1">Test 1</option>
+                                <option value="2">Test 2</option>
+                                <option value="3">Test 3</option>
+                                <option value="4">Test 4</option>
+                            </select>
+                        </div>
                         <p>Status: {isPlayerReady && isMidiReady ? "Video starten om te beginnen" : "Laden..."}</p>
                         <p style={{ fontSize: '1.2rem' }}>Volgende greep: <strong style={{ color: '#f1c40f' }}>{noteGroups[displayStep]?.weergaveNaam || "-"}</strong></p>
-                        <p style={{ fontSize: '0.9rem', color: '#888' }}>Test Config: Partij = <strong>{TEST_CONFIGS[ACTIVE_TEST_ID].partij}</strong>, Vergevingsgezindheid = <strong>{TEST_CONFIGS[ACTIVE_TEST_ID].forgiveness}</strong></p>
+                        <p style={{ fontSize: '0.9rem', color: '#888' }}>Test Config: Partij = <strong>{TEST_CONFIGS[activeTestId].partij}</strong>, Vergevingsgezindheid = <strong>{TEST_CONFIGS[activeTestId].forgiveness}</strong></p>
                     </div>
 
                     <div ref={containerRef} style={{ width: '100%', height: '120px', backgroundColor: '#000', position: 'relative', overflow: 'hidden', border: '2px solid #ff4757', borderRadius: '8px' }}>
