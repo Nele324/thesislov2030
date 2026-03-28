@@ -1,34 +1,31 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import Soundfont from 'soundfont-player';
+import Soundfont, { Player, InstrumentName } from 'soundfont-player';
 import { Midi } from '@tonejs/midi';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const FullScorePlayer = () => {
-    const [player, setPlayer] = useState(null);
-    const [noteGroups, setNoteGroups] = useState([]);
+    const [player, setPlayer] = useState<Player | null>(null);
+    const [noteGroups, setNoteGroups] = useState<NoteGroup[]>([]);
     const [isPlayerReady, setIsPlayerReady] = useState(false);
     const [isMidiReady, setIsMidiReady] = useState(false);
-    //const [displayStep, setDisplayStep] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
-    const [activeTestId, setActiveTestId] = useState(1);
+    const [activeTestId, setActiveTestId] = useState<number>(1);
 
     const [videoVolume] = useState(0.75); // 75%
     const [saxVolume] = useState(0.5);    // 50%
 
-    const [buttonPresses, setButtonPresses] = useState([]);
-    const [activeKeys, setActiveKeys] = useState(new Set());
+    const [buttonPresses, setButtonPresses] = useState<{ id: number }[]>([]);
+    const [activeKeys, setActiveKeys] = useState<Set<number>>(new Set());
 
-    // Refs voor de strakke tijdlijn
-    //const containerRef = useRef();
-    const videoRef = useRef(null);
-    const requestRef = useRef();
-    const blockRefs = useRef([]);
+    const videoRef = useRef<HTMLVideoElement | null>(null);
+    const requestRef = useRef<number | null>(null);
+    const blockRefs = useRef<(HTMLDivElement | null)[]>([]);
     const isKeyDown = useRef(false);
-    const activeNoteEvent = useRef(null);
+    const activeNoteEvent = useRef<any>(null);
     const currentNoteIndexRef = useRef(-1);
-    const audioContext = useRef(null);
+    const audioContext = useRef<AudioContext | null>(null);
     const hasPlayedCurrentNote = useRef(false);
-    const instrumentNameRef = useRef(null);
+    const instrumentNameRef = useRef<InstrumentName | null>(null);
     const feedbackIdRef = useRef(0);
 
     const PIXELS_PER_SECOND = 350;
@@ -36,14 +33,28 @@ const FullScorePlayer = () => {
     const OFFSET = 4.8;
     const FORGIVENESS_MARGIN = 0.15; // 150ms marge voor 'low' forgiveness
 
-    const TEST_CONFIGS = {
+    interface NoteGroup {
+        time: number;
+        duration: number;
+        weergaveNaam: string;
+        klinkendeNaam: string;
+        velocity: number;
+        id: string;
+    }
+
+    interface TestConfig {
+        partij: 'melodie' | 'achtergrond';
+        forgiveness: 'low' | 'high';
+    }
+
+    const TEST_CONFIGS: Record<number, TestConfig> = {
         1: { partij: 'melodie', forgiveness: 'low' },
         2: { partij: 'achtergrond', forgiveness: 'high' },
         3: { partij: 'melodie', forgiveness: 'high' },
         4: { partij: 'achtergrond', forgiveness: 'high' }
     };
 
-    const getSaxNootNaam = (midiNumber) => {
+    const getSaxNootNaam = (midiNumber: number): string => {
         const namen = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "Sib", "Si"];
         const index = midiNumber % 12;
         return namen[index];
@@ -51,7 +62,8 @@ const FullScorePlayer = () => {
 
     const initAudio = () => {
         if (!audioContext.current) {
-            audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
+            const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+            audioContext.current = new AudioContextClass();
         }
         if (audioContext.current.state === 'suspended') {
             audioContext.current.resume();
@@ -77,6 +89,7 @@ const FullScorePlayer = () => {
         }
 
         if (!audioContext.current) { initAudio(); }
+        if (!audioContext.current || !instrumentNameRef.current) return;
 
         Soundfont.instrument(audioContext.current, instrumentNameRef.current, { soundfont: 'MusyngKite' })
             .then((inst) => {
@@ -102,17 +115,15 @@ const FullScorePlayer = () => {
         });
     }, [activeTestId]);
 
-    const updateBlockPositions = useCallback((time) => {
+    const updateBlockPositions = useCallback((time: number) => {
         const hitZonePixelPos = (window.innerHeight * (HIT_ZONE_Y_PERCENT / 100));
 
         for (let i = 0; i < blockRefs.current.length; i++) {
             const block = blockRefs.current[i];
             if (block) {
-                const noteTime = parseFloat(block.getAttribute('data-time'));
-                // AFSTAND BEREKENING:
-                // (noteTime - time) is het aantal seconden tot de noot de lijn raakt.
-                // We vermenigvuldigen met PIXELS_PER_SECOND en trekken dit af van de hitZonePixelPos
-                // zodat een noot in de toekomst (positieve waarde) HOOG op het scherm staat.
+                const noteTimeStr = block.getAttribute('data-time');
+                if (!noteTimeStr) continue;
+                const noteTime = parseFloat(noteTimeStr);
                 const y = hitZonePixelPos - (noteTime - time) * PIXELS_PER_SECOND;
 
                 // BELANGRIJK: translate(-50%, -100%) zorgt dat de ONDERKANT van de balk 
@@ -126,7 +137,7 @@ const FullScorePlayer = () => {
     }, [PIXELS_PER_SECOND, HIT_ZONE_Y_PERCENT]);
 
     const animate = useCallback(() => {
-        if (!videoRef.current || !isPlaying) return;
+        if (!videoRef.current || !isPlaying || !player || !audioContext.current) return;
 
         const config = TEST_CONFIGS[activeTestId];
         const videoTime = videoRef.current.currentTime;
@@ -194,17 +205,22 @@ const FullScorePlayer = () => {
 
     useEffect(() => {
         if (isPlaying) {
-            //initAudio();
             requestRef.current = requestAnimationFrame(animate);
-        } else {
+        } else if (requestRef.current !== null) {
             cancelAnimationFrame(requestRef.current);
+            requestRef.current = null;
         }
-        return () => cancelAnimationFrame(requestRef.current);
+        return () => {
+            if (requestRef.current !== null) {
+                cancelAnimationFrame(requestRef.current);
+                requestRef.current = null;
+            }
+        };
     }, [isPlaying, animate]);
 
     // Toetsenbord Events
     useEffect(() => {
-        const handleKeyDown = (e) => {
+        const handleKeyDown = (e: KeyboardEvent) => {
             if (e.code === 'Space') {
                 e.preventDefault();
                 initAudio();
@@ -216,7 +232,7 @@ const FullScorePlayer = () => {
                 setTimeout(() => setButtonPresses(prev => prev.filter(p => p.id !== pressId)), 600);
             }
         };
-        const handleKeyUp = (e) => {
+        const handleKeyUp = (e: KeyboardEvent) => {
             if (e.code === 'Space') {
                 e.preventDefault();
                 isKeyDown.current = false;
@@ -302,7 +318,7 @@ const FullScorePlayer = () => {
                     {noteGroups.map((note, index) => (
                         <div
                             key={note.id}
-                            ref={el => blockRefs.current[index] = el}
+                            ref={el => { blockRefs.current[index] = el; }}
                             data-time={note.time}
                             className="absolute left-1/2 flex items-end justify-center rounded-full border-2 border-amber-300 shadow-[0_0_15px_rgba(232,196,104,0.4)]"
                             style={{

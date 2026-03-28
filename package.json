@@ -10,8 +10,6 @@
     "@tonejs/midi": "^2.0.28",
     "@types/jest": "^27.5.2",
     "@types/node": "^16.18.126",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "framer-motion": "^12.38.0",
@@ -54,6 +52,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^8.57.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.4.27",
     "eslint": "^8.57.1",
     "eslint-plugin-react": "^7.37.5",
