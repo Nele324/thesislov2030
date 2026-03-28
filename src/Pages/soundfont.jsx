@@ -35,11 +35,12 @@ const FullScorePlayer = () => {
     };
 
     const TEST_CONFIGS = {
-        1: { partij: 'achtergrond', forgiveness: 'high', keys: 1 },
-        2: { partij: 'melodie', forgiveness: 'low', keys: 2 },
-        3: { partij: 'achtergrond', forgiveness: 'low', keys: 2 },
-        4: { partij: 'melodie', forgiveness: 'high', keys: 4 },
-        5: { partij: 'achtergrond', forgiveness: 'high', keys: 4 }
+        1: { partij: 'melodie', forgiveness: 'high', keys: 1 },
+        2: { partij: 'achtergrond', forgiveness: 'high', keys: 1 },
+        3: { partij: 'melodie', forgiveness: 'low', keys: 2 },
+        4: { partij: 'achtergrond', forgiveness: 'low', keys: 2 },
+        5: { partij: 'melodie', forgiveness: 'high', keys: 4 },
+        6: { partij: 'achtergrond', forgiveness: 'high', keys: 4 },
     };
 
     const FORGIVENESS_MARGIN = 0.15; // 150ms marge voor 'low' forgiveness
@@ -57,9 +58,9 @@ const FullScorePlayer = () => {
         let link = "";
         let transposition = 0;
 
-        if (activeTestId === 2 || activeTestId === 4) {
+        if (activeTestId === 1 || activeTestId === 3 || activeTestId === 5) {
             instrumentNameRef.current = 'soprano_sax';
-            link = "/scores/How_to_train_your_dragon.mid"
+            link = "/scores/How_to_train_your_dragon-soprano.mid"
             transposition = -2;
         } else {
             instrumentNameRef.current = 'baritone_sax';
@@ -290,11 +291,12 @@ const FullScorePlayer = () => {
                                     cursor: 'pointer'
                                 }}
                             >
-                                <option value="1">Test 1</option>
-                                <option value="2">Test 2</option>
-                                <option value="3">Test 3</option>
-                                <option value="4">Test 4</option>
-                                <option value="5">Test 5</option>
+                                <option value="1">Test</option>
+                                <option value="2">Test 1</option>
+                                <option value="3">Test 2</option>
+                                <option value="4">Test 3</option>
+                                <option value="5">Test 4</option>
+                                <option value="6">Test 5</option>
                             </select>
                         </div>
                         <p>Status: {isPlayerReady && isMidiReady ? "Video starten om te beginnen" : "Laden..."}</p>
