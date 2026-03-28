@@ -1,21 +1,25 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Soundfont from 'soundfont-player';
 import { Midi } from '@tonejs/midi';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const FullScorePlayer = () => {
     const [player, setPlayer] = useState(null);
     const [noteGroups, setNoteGroups] = useState([]);
     const [isPlayerReady, setIsPlayerReady] = useState(false);
     const [isMidiReady, setIsMidiReady] = useState(false);
-    const [displayStep, setDisplayStep] = useState(0);
+    //const [displayStep, setDisplayStep] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
     const [activeTestId, setActiveTestId] = useState(1);
 
     const [videoVolume] = useState(0.75); // 75%
     const [saxVolume] = useState(0.5);    // 50%
 
+    const [buttonPresses, setButtonPresses] = useState([]);
+    const [activeKeys, setActiveKeys] = useState(new Set());
+
     // Refs voor de strakke tijdlijn
-    const containerRef = useRef();
+    //const containerRef = useRef();
     const videoRef = useRef(null);
     const requestRef = useRef();
     const blockRefs = useRef([]);
@@ -25,14 +29,15 @@ const FullScorePlayer = () => {
     const audioContext = useRef(null);
     const hasPlayedCurrentNote = useRef(false);
     const instrumentNameRef = useRef(null);
+    const feedbackIdRef = useRef(0);
 
-    const PIXELS_PER_SECOND = 200;
-    const HIT_LINE_X = 100;
+    const PIXELS_PER_SECOND = 350;
+    const HIT_ZONE_Y_PERCENT = 85;
     const OFFSET = 4.8;
     const FORGIVENESS_MARGIN = 0.15; // 150ms marge voor 'low' forgiveness
 
     const TEST_CONFIGS = {
-        1: { partij: 'melodie', forgiveness: 'high' },
+        1: { partij: 'melodie', forgiveness: 'low' },
         2: { partij: 'achtergrond', forgiveness: 'high' },
         3: { partij: 'melodie', forgiveness: 'high' },
         4: { partij: 'achtergrond', forgiveness: 'high' }
@@ -71,9 +76,7 @@ const FullScorePlayer = () => {
             transposition = -3;
         }
 
-        if (!audioContext.current) {
-            initAudio();
-        }
+        if (!audioContext.current) { initAudio(); }
 
         Soundfont.instrument(audioContext.current, instrumentNameRef.current, { soundfont: 'MusyngKite' })
             .then((inst) => {
@@ -86,7 +89,7 @@ const FullScorePlayer = () => {
             const allNotes = track.notes.filter(n => n.duration > 0.05);
             const groups = allNotes.map((note, i) => ({
                 time: note.time,
-                duration: Math.max(note.duration - 0.05, 0.05),
+                duration: Math.max(note.duration - 0.03, 0.03),
                 weergaveNaam: getSaxNootNaam(note.midi + transposition),
                 klinkendeNaam: note.name,
                 velocity: note.velocity,
@@ -94,21 +97,33 @@ const FullScorePlayer = () => {
             }));
             setNoteGroups(groups);
             setIsMidiReady(true);
-            setDisplayStep(0);
+            //setDisplayStep(0);
             currentNoteIndexRef.current = -1;
         });
     }, [activeTestId]);
 
     const updateBlockPositions = useCallback((time) => {
+        const hitZonePixelPos = (window.innerHeight * (HIT_ZONE_Y_PERCENT / 100));
+
         for (let i = 0; i < blockRefs.current.length; i++) {
             const block = blockRefs.current[i];
             if (block) {
                 const noteTime = parseFloat(block.getAttribute('data-time'));
-                const x = (noteTime - time) * PIXELS_PER_SECOND + HIT_LINE_X;
-                block.style.transform = `translateX(${x}px)`;
+                // AFSTAND BEREKENING:
+                // (noteTime - time) is het aantal seconden tot de noot de lijn raakt.
+                // We vermenigvuldigen met PIXELS_PER_SECOND en trekken dit af van de hitZonePixelPos
+                // zodat een noot in de toekomst (positieve waarde) HOOG op het scherm staat.
+                const y = hitZonePixelPos - (noteTime - time) * PIXELS_PER_SECOND;
+
+                // BELANGRIJK: translate(-50%, -100%) zorgt dat de ONDERKANT van de balk 
+                // het referentiepunt is voor de positie.
+                block.style.transform = `translate(-50%, ${y}px)`;
+
+                // Performance: verberg noten die al ver voorbij zijn of nog heel ver weg
+                block.style.display = (y < -2000 || y > window.innerHeight + 500) ? 'none' : 'flex';
             }
         }
-    }, []);
+    }, [PIXELS_PER_SECOND, HIT_ZONE_Y_PERCENT]);
 
     const animate = useCallback(() => {
         if (!videoRef.current || !isPlaying) return;
@@ -146,7 +161,7 @@ const FullScorePlayer = () => {
                 activeNoteEvent.current = player.play(note.klinkendeNaam, audioContext.current.currentTime, { gain: saxVolume });
                 currentNoteIndexRef.current = nowNoteIndex;
                 hasPlayedCurrentNote.current = true;
-                setDisplayStep(nowNoteIndex);
+                //setDisplayStep(nowNoteIndex);
             } else if (!canPlay) {
                 // Als men te laat is bij 'low', markeren we de noot als 'gemist' voor deze toetsaanslag
                 hasPlayedCurrentNote.current = true;
@@ -175,11 +190,11 @@ const FullScorePlayer = () => {
         }
 
         requestRef.current = requestAnimationFrame(animate);
-    }, [isPlaying, noteGroups, player, saxVolume, activeTestId, updateBlockPositions]);
+    }, [isPlaying, noteGroups, player, saxVolume, activeTestId]);
 
     useEffect(() => {
         if (isPlaying) {
-            initAudio();
+            //initAudio();
             requestRef.current = requestAnimationFrame(animate);
         } else {
             cancelAnimationFrame(requestRef.current);
@@ -189,8 +204,26 @@ const FullScorePlayer = () => {
 
     // Toetsenbord Events
     useEffect(() => {
-        const handleKeyDown = (e) => { if (e.code === 'Space') { e.preventDefault(); initAudio(); isKeyDown.current = true; } };
-        const handleKeyUp = (e) => { if (e.code === 'Space') { e.preventDefault(); isKeyDown.current = false; hasPlayedCurrentNote.current = false; } };
+        const handleKeyDown = (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                initAudio();
+                isKeyDown.current = true;
+                setActiveKeys(new Set([0]));
+                // Visual ripple
+                const pressId = feedbackIdRef.current++;
+                setButtonPresses(prev => [...prev, { id: pressId }]);
+                setTimeout(() => setButtonPresses(prev => prev.filter(p => p.id !== pressId)), 600);
+            }
+        };
+        const handleKeyUp = (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                isKeyDown.current = false;
+                hasPlayedCurrentNote.current = false;
+                setActiveKeys(new Set());
+            }
+        };
         window.addEventListener('keydown', handleKeyDown);
         window.addEventListener('keyup', handleKeyUp);
         return () => { window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp); };
@@ -202,92 +235,173 @@ const FullScorePlayer = () => {
         }
     }, [videoVolume, isPlaying]);
 
-    //const onVideoReady = (event) => { videoPlayerRef.current = event.target; };
-
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px', backgroundColor: '#111', minHeight: '100vh', color: 'white' }}>
-            <div style={{ display: 'flex', gap: '20px', width: '100%', maxWidth: '1200px', justifyContent: 'center', alignItems: 'flex-start' }}>
-                {/* LINKS: De Video */}
-                <div style={{ flex: 1, borderRadius: '10px', overflow: 'hidden', border: '2px solid #333' }}>
+        <div className="relative w-screen h-screen overflow-hidden bg-black flex text-white">
+            {/* 1. ACHTERGROND: De Video (Vult het hele scherm) */}
+            <div className="absolute inset-0 z-0">
+                <video
+                    ref={videoRef}
+                    src="/HowToTrainYourDragon.mp4"
+                    crossOrigin='anonymous'
+                    className="w-full h-full object-cover opacity-80"
+                    controls
+                    onPlay={() => { setIsPlaying(true) }}
+                    onPause={() => setIsPlaying(false)}
+                    onEnded={() => setIsPlaying(false)}
+                />
+            </div>
 
-                    <video
-                        ref={videoRef}
-                        src="/HowToTrainYourDragon.mp4"
-                        crossOrigin='anonymous'
-                        style={{ width: '100%', display: 'block' }}
-                        controls
-                        onPlay={() => { setIsPlaying(true) }}
-                        onPause={() => setIsPlaying(false)}
-                        onEnded={() => setIsPlaying(false)}
-                    />
+            {/* 2. DASHBOARD: Rechtsboven over de video */}
+            <div className="absolute top-6 right-6 p-6 bg-black/50 backdrop-blur-lg rounded-2xl border border-white/20 z-20 w-80 shadow-2xl">
+                <h3 className="text-2xl font-black mb-4 tracking-tighter text-amber-400">Dashboard</h3>
+                <div className="space-y-4">
+                    <div>
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-1">Scenario</label>
+                        <select
+                            id="test-select"
+                            value={activeTestId}
+                            onChange={(e) => { setActiveTestId(parseInt(e.target.value)); console.log(`Test scenario gewijzigd naar: ${e.target.value}`); console.log(instrumentNameRef.current) }}
+                            className="bg-zinc-800 text-white p-3 rounded-xl w-full border border-white/20 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        >
+                            <option value="1">Test 1</option>
+                            <option value="2">Test 2</option>
+                            <option value="3">Test 3</option>
+                            <option value="4">Test 4</option>
+                        </select>
+                    </div>
 
-                </div>
-
-                {/* RECHTS: De Tijdlijn en info */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <div style={{ padding: '15px', backgroundColor: '#222', borderRadius: '10px', border: '1px solid #444' }}>
-                        <h3>Dashboard</h3>
-                        <div style={{ marginBottom: '15px' }}>
-                            <label htmlFor="test-select" style={{ display: 'block', marginBottom: '5px', fontSize: '0.8rem', color: '#888' }}>
-                                Selecteer Test Scenario:
-                            </label>
-                            <select
-                                id="test-select"
-                                value={activeTestId}
-                                onChange={(e) => { setActiveTestId(parseInt(e.target.value)); console.log(`Test scenario gewijzigd naar: ${e.target.value}`); console.log(instrumentNameRef.current) }}
-                                style={{
-                                    width: '100%',
-                                    padding: '8px',
-                                    backgroundColor: '#333',
-                                    color: 'white',
-                                    border: '1px solid #555',
-                                    borderRadius: '5px',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                <option value="1">Test 1</option>
-                                <option value="2">Test 2</option>
-                                <option value="3">Test 3</option>
-                                <option value="4">Test 4</option>
-                            </select>
+                    <div className="grid grid-cols-1 gap-2 text-[11px] uppercase font-bold tracking-tight">
+                        {/*<div className="p-2 bg-white/5 rounded-lg border border-white/5">
+                            <span className="block text-gray-500 mb-1">Volgende</span>
+                            <span className="text-amber-200">{noteGroups[displayStep]?.weergaveNaam || "-"}</span>
+                        </div>*/}
+                        <div className="p-2 bg-white/5 rounded-lg border border-white/5">
+                            <span className="block text-gray-500 mb-1">Status</span>
+                            <span className={isPlayerReady && isMidiReady ? "text-green-400" : "text-red-400"}>
+                                {isPlayerReady && isMidiReady ? "Video starten om te beginnen" : "Laden..."}
+                            </span>
                         </div>
-                        <p>Status: {isPlayerReady && isMidiReady ? "Video starten om te beginnen" : "Laden..."}</p>
-                        <p style={{ fontSize: '1.2rem' }}>Volgende greep: <strong style={{ color: '#f1c40f' }}>{noteGroups[displayStep]?.weergaveNaam || "-"}</strong></p>
-                        <p style={{ fontSize: '0.9rem', color: '#888' }}>Test Config: Partij = <strong>{TEST_CONFIGS[activeTestId].partij}</strong>, Vergevingsgezindheid = <strong>{TEST_CONFIGS[activeTestId].forgiveness}</strong></p>
-                    </div>
-
-                    <div ref={containerRef} style={{ width: '100%', height: '120px', backgroundColor: '#000', position: 'relative', overflow: 'hidden', border: '2px solid #ff4757', borderRadius: '8px' }}>
-                        <div style={{ position: 'absolute', left: `${HIT_LINE_X}px`, top: 0, bottom: 0, width: '4px', backgroundColor: '#ff4757', zIndex: 10, boxShadow: '0 0 15px #ff4757' }} />
-                        {noteGroups.map((note, index) => (
-                            <div
-                                key={note.id}
-                                className="note-block"
-                                data-time={note.time}
-                                ref={el => blockRefs.current[index] = el}
-                                style={{
-                                    position: 'absolute',
-                                    left: 0, top: '30px',
-                                    width: `${Math.max(note.duration * PIXELS_PER_SECOND, 40)}px`,
-                                    height: '60px',
-                                    backgroundColor: index < displayStep ? '#333' : (index === displayStep ? '#f1c40f' : '#2ecc71'),
-                                    border: '1px solid rgba(255,255,255,0.3)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    borderRadius: '4px',
-                                    willChange: 'transform'
-                                }}>
-                                <span style={{ color: index === displayStep ? 'black' : 'white', fontWeight: 'bold' }}>{note.weergaveNaam}</span>
-                            </div>
-                        ))}
+                        <div className="p-2 bg-white/5 rounded-lg border border-white/5">
+                            <span className="block text-gray-500 mb-1">Test config: partij = {TEST_CONFIGS[activeTestId].partij}, Vergevingsgezindheid = {TEST_CONFIGS[activeTestId].forgiveness}</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div style={{ marginTop: '40px', padding: '20px', border: '2px dashed #444', borderRadius: '50%', width: '100px', height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ color: isPlaying ? '#2ecc71' : '#888', fontWeight: 'bold' }}>LIVE</span>
-            </div>
-        </div>
+
+            {/* 3. GAME AREA: Linksonder over de video */}
+            <div className="absolute left-12 bottom-0 w-48 h-full z-10 flex flex-col items-center">
+                {/* De Lane Glow */}
+                <div className="absolute inset-0 w-full bg-gradient-to-t from-amber-600/20 via-amber-900/5 to-transparent" />
+
+                {/* Hit Line */}
+                <div className="absolute w-full h-1 bg-amber-500/60 shadow-[0_0_20px_rgba(255,215,0,0.8)]" style={{ top: `${HIT_ZONE_Y_PERCENT}%` }} />
+
+                {/* Vallende Noten */}
+                <div className="relative w-full h-full overflow-hidden">
+                    {noteGroups.map((note, index) => (
+                        <div
+                            key={note.id}
+                            ref={el => blockRefs.current[index] = el}
+                            data-time={note.time}
+                            className="absolute left-1/2 flex items-end justify-center rounded-full border-2 border-amber-300 shadow-[0_0_15px_rgba(232,196,104,0.4)]"
+                            style={{
+                                width: '97px',
+                                height: `${Math.max(note.duration * PIXELS_PER_SECOND, 60)}px`,
+                                marginTop: `-${Math.max(note.duration * PIXELS_PER_SECOND, 60)}px`, // Zorgt dat de noot 'boven' begint
+                                background: `linear-gradient(to top, #E8C468 0%, #C9A961 40%, #8B7355 100%)`,
+                                top: 0, // Wordt overschreven door transform in updateBlockPositions
+                                willChange: 'transform',
+                                zIndex: 5,
+                                paddingTop: '12px',
+                            }}>
+                            {/*<span className="text-black font-black text-lg drop-shadow-md">{note.weergaveNaam}</span>*/}
+                        </div>
+                    ))}
+                </div>
+
+                {/* DE BUTTON (Vast op de hit-line) */}
+                <div className="absolute z-40" style={{ top: `${HIT_ZONE_Y_PERCENT}%`, transform: 'translateY(-50%)' }}>
+
+                    {/* AANGEPAST: De motion.div zit nu om de HELE knop heen */}
+                    <motion.div
+                        className="relative w-24 h-24"
+                        animate={{
+                            y: activeKeys.has(0) ? 8 : 0, // Hele knop gaat omlaag
+                            scale: activeKeys.has(0) ? 0.92 : 1 // Hele knop krimpt iets
+                        }}
+                        transition={{ duration: 0.1 }} // Snelle reactie
+                    >
+                        {/* Ripple effect (blijft hetzelfde) */}
+                        <AnimatePresence>
+                            {buttonPresses.map(p => (
+                                <motion.div
+                                    key={p.id}
+                                    initial={{ scale: 1, opacity: 0.6 }}
+                                    animate={{ scale: 2.5, opacity: 0 }}
+                                    transition={{ duration: 0.5 }}
+                                    className="absolute inset-0 border-4 border-amber-400 rounded-full z-0"
+                                />
+                            ))}
+                        </AnimatePresence>
+
+                        {/* 2. De Gouden Cup Base (Verfijnd Antiek Goud) */}
+                        <div
+                            className="absolute inset-0 rounded-full border border-[#5C4B26]/30 z-10 shadow-[0_15px_30px_rgba(0,0,0,0.8)]"
+                            style={{
+                                background: `
+                                    radial-gradient(circle at 32% 35%, 
+                                        #f3e5abbd 0%,    /* Zachte gele highlight (Meringue) */
+                                        #D4AF37 15%,   /* Warm verzadigd goud */
+                                        #927233 60%,   /* Overgang naar brons */
+                                        #4A3718 85%,   /* Diepe schaduw */
+                                        #31250f 100%   /* Donkere rand */
+                                    )
+                                `,
+                            }}
+                        >
+                            {/* Interne zachte glanslaag voor die zijdezachte metaal-look */}
+                            <div
+                                className="absolute inset-0 rounded-full opacity-40 shadow-[inset_0_2px_15px_rgba(255,255,255,0.1)]"
+                                style={{
+                                    background: 'radial-gradient(circle at 40% 40%, rgba(255, 248, 220, 0.2) 0%, transparent 60%)',
+                                }}
+                            />
+                        </div>
+
+                        {/* 2. De Kleine Witte Parelmoer Inleg (Gecentreerd) */}
+                        <div
+                            className="absolute rounded-full z-20 overflow-hidden border border-[#D4AF37]/60"
+                            style={{
+                                bottom: '12px',
+                                right: '12px',
+
+                                width: '45px',
+                                height: '45px',
+
+                                background: `radial-gradient(circle at 40% 40%, #FFFDF8 0%, #F5F1E1 50%, #E0DBCF 100%)`,
+                                boxShadow: '0 3px 6px rgba(0,0,0,0.7)',
+                            }}
+                        >
+                            {/* De Realistische Parelmoer Swirl Textuur */}
+                            <div
+                                className="absolute inset-0 opacity-100"
+                                style={{
+                                    backgroundImage: `
+                                        radial-gradient(ellipse at 80% 80%, rgba(216,180,254, 0.4) 0%, transparent 40%),
+                                        radial-gradient(ellipse at 20% 20%, rgba(147,197,253, 0.3) 0%, transparent 40%),
+                                        conic-gradient(from 180deg, transparent, rgba(166,124,0, 0.1), transparent),
+                                        conic-gradient(from 0deg, transparent, rgba(166,124,0, 0.1), transparent)
+                                    `,
+                                    filter: 'blur(1px)', // Swirl textuur zachter maken
+                                }}
+                            />
+                        </div>
+
+                    </motion.div>
+                </div>
+            </div >
+        </div >
     );
 };
 
