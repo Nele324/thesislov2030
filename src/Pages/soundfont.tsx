@@ -3,13 +3,27 @@ import Soundfont, { Player, InstrumentName } from 'soundfont-player';
 import { Midi } from '@tonejs/midi';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const FullScorePlayer = () => {
+interface NoteGroup {
+    time: number;
+    duration: number;
+    weergaveNaam: string;
+    klinkendeNaam: string;
+    velocity: number;
+    id: string;
+}
+
+interface FullScorePlayerProps {
+    partij: 'melodie' | 'achtergrond';
+    forgiveness: 'low' | 'high';
+    onBack?: () => void;
+}
+
+const FullScorePlayer: React.FC<FullScorePlayerProps> = ({ partij, forgiveness, onBack }) => {
     const [player, setPlayer] = useState<Player | null>(null);
     const [noteGroups, setNoteGroups] = useState<NoteGroup[]>([]);
     const [isPlayerReady, setIsPlayerReady] = useState(false);
     const [isMidiReady, setIsMidiReady] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
-    const [activeTestId, setActiveTestId] = useState<number>(1);
 
     const [videoVolume] = useState(0.75); // 75%
     const [saxVolume] = useState(0.5);    // 50%
@@ -32,27 +46,6 @@ const FullScorePlayer = () => {
     const HIT_ZONE_Y_PERCENT = 85;
     const OFFSET = 4.8;
     const FORGIVENESS_MARGIN = 0.15; // 150ms marge voor 'low' forgiveness
-
-    interface NoteGroup {
-        time: number;
-        duration: number;
-        weergaveNaam: string;
-        klinkendeNaam: string;
-        velocity: number;
-        id: string;
-    }
-
-    interface TestConfig {
-        partij: 'melodie' | 'achtergrond';
-        forgiveness: 'low' | 'high';
-    }
-
-    const TEST_CONFIGS: Record<number, TestConfig> = {
-        1: { partij: 'melodie', forgiveness: 'low' },
-        2: { partij: 'achtergrond', forgiveness: 'high' },
-        3: { partij: 'melodie', forgiveness: 'high' },
-        4: { partij: 'achtergrond', forgiveness: 'high' }
-    };
 
     const getSaxNootNaam = (midiNumber: number): string => {
         const namen = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "Sib", "Si"];
@@ -78,7 +71,7 @@ const FullScorePlayer = () => {
         let link = "";
         let transposition = 0;
 
-        if (activeTestId === 1 || activeTestId === 3) {
+        if (partij === 'melodie') {
             instrumentNameRef.current = 'soprano_sax';
             link = "/scores/How_to_train_your_dragon-soprano.mid"
             transposition = -2;
@@ -106,14 +99,14 @@ const FullScorePlayer = () => {
                 weergaveNaam: getSaxNootNaam(note.midi + transposition),
                 klinkendeNaam: note.name,
                 velocity: note.velocity,
-                id: `note-${i}-${activeTestId}`
+                id: `note-${i}-${partij}-${forgiveness}`
             }));
             setNoteGroups(groups);
             setIsMidiReady(true);
             //setDisplayStep(0);
             currentNoteIndexRef.current = -1;
         });
-    }, [activeTestId]);
+    }, [partij, forgiveness]);
 
     const updateBlockPositions = useCallback((time: number) => {
         const hitZonePixelPos = (window.innerHeight * (HIT_ZONE_Y_PERCENT / 100));
@@ -139,7 +132,6 @@ const FullScorePlayer = () => {
     const animate = useCallback(() => {
         if (!videoRef.current || !isPlaying || !player || !audioContext.current) return;
 
-        const config = TEST_CONFIGS[activeTestId];
         const videoTime = videoRef.current.currentTime;
         const currentTime = videoTime - OFFSET;
         //console.log(`Video Time: ${videoTime.toFixed(3)}`);
@@ -157,7 +149,7 @@ const FullScorePlayer = () => {
 
             // Check voor Vergevingsgezindheid
             let canPlay = false;
-            if (config.forgiveness === 'high') {
+            if (forgiveness === 'high') {
                 // Hoog: Altijd spelen als je binnen de noot-tijd duwt
                 canPlay = true;
             } else {
@@ -201,7 +193,7 @@ const FullScorePlayer = () => {
         }
 
         requestRef.current = requestAnimationFrame(animate);
-    }, [isPlaying, noteGroups, player, saxVolume, activeTestId]);
+    }, [isPlaying, noteGroups, player, saxVolume, forgiveness, updateBlockPositions]);
 
     useEffect(() => {
         if (isPlaying) {
@@ -267,51 +259,31 @@ const FullScorePlayer = () => {
                 />
             </div>
 
-            {/* 2. DASHBOARD: Rechtsboven over de video */}
-            <div className="absolute top-6 right-6 p-6 bg-black/50 backdrop-blur-lg rounded-2xl border border-white/20 z-20 w-80 shadow-2xl">
-                <h3 className="text-2xl font-black mb-4 tracking-tighter text-amber-400">Dashboard</h3>
-                <div className="space-y-4">
-                    <div>
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-1">Scenario</label>
-                        <select
-                            id="test-select"
-                            value={activeTestId}
-                            onChange={(e) => { setActiveTestId(parseInt(e.target.value)); console.log(`Test scenario gewijzigd naar: ${e.target.value}`); console.log(instrumentNameRef.current) }}
-                            className="bg-zinc-800 text-white p-3 rounded-xl w-full border border-white/20 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                        >
-                            <option value="1">Test 1</option>
-                            <option value="2">Test 2</option>
-                            <option value="3">Test 3</option>
-                            <option value="4">Test 4</option>
-                        </select>
-                    </div>
+            {!isPlaying && (
+                <div className="absolute top-6 left-1/2 -translate-x-1/2 p-4 bg-black/50 backdrop-blur-lg rounded-2xl border border-white/20 z-20 w-auto">
+                    <span className={isPlayerReady && isMidiReady ? "text-green-400" : "text-red-400"}>
+                        {isPlayerReady && isMidiReady ? "Video starten om te beginnen" : "Laden..."}
+                    </span>
+                </div >
+            )}
 
-                    <div className="grid grid-cols-1 gap-2 text-[11px] uppercase font-bold tracking-tight">
-                        {/*<div className="p-2 bg-white/5 rounded-lg border border-white/5">
-                            <span className="block text-gray-500 mb-1">Volgende</span>
-                            <span className="text-amber-200">{noteGroups[displayStep]?.weergaveNaam || "-"}</span>
-                        </div>*/}
-                        <div className="p-2 bg-white/5 rounded-lg border border-white/5">
-                            <span className="block text-gray-500 mb-1">Status</span>
-                            <span className={isPlayerReady && isMidiReady ? "text-green-400" : "text-red-400"}>
-                                {isPlayerReady && isMidiReady ? "Video starten om te beginnen" : "Laden..."}
-                            </span>
-                        </div>
-                        <div className="p-2 bg-white/5 rounded-lg border border-white/5">
-                            <span className="block text-gray-500 mb-1">Test config: partij = {TEST_CONFIGS[activeTestId].partij}, Vergevingsgezindheid = {TEST_CONFIGS[activeTestId].forgiveness}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <div className="absolute top-6 right-6 z-20 w-auto">
+                <button
+                    onClick={onBack}
+                    className="mb-4 text-xs uppercase tracking-widest text-gray-400 hover:text-white transition-colors"
+                >
+                    ←
+                </button>
+            </div >
 
 
             {/* 3. GAME AREA: Linksonder over de video */}
-            <div className="absolute left-12 bottom-0 w-48 h-full z-10 flex flex-col items-center">
+            < div className="absolute left-12 bottom-0 w-48 h-full z-10 flex flex-col items-center" >
                 {/* De Lane Glow */}
-                <div className="absolute inset-0 w-full bg-gradient-to-t from-amber-600/20 via-amber-900/5 to-transparent" />
+                < div className="absolute inset-0 w-full bg-gradient-to-t from-amber-600/20 via-amber-900/5 to-transparent" />
 
                 {/* Hit Line */}
-                <div className="absolute w-full h-1 bg-amber-500/60 shadow-[0_0_20px_rgba(255,215,0,0.8)]" style={{ top: `${HIT_ZONE_Y_PERCENT}%` }} />
+                < div className="absolute w-full h-1 bg-amber-500/60 shadow-[0_0_20px_rgba(255,215,0,0.8)]" style={{ top: `${HIT_ZONE_Y_PERCENT}%` }} />
 
                 {/* Vallende Noten */}
                 <div className="relative w-full h-full overflow-hidden">
