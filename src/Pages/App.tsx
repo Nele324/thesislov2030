@@ -6,19 +6,21 @@ import Tone from './Tone';
 import Broadcast from './Broadcast';
 import Watch from './Watch';
 import FullScorePlayer from './soundfont';
+import UI1 from './UI1';
 
-type Page = 'home' | 'tone' | 'broadcast' | 'watch' | 'sound-player';
+type Page = 'home' | 'tone' | 'broadcast' | 'watch' | 'sound-player' | 'ui1';
 
 interface TestConfig {
   partij: 'melodie' | 'achtergrond';
   forgiveness: 'low' | 'high';
+  UI: 1 | 2;
 }
 
 const TEST_CONFIGS: Record<number, TestConfig> = {
-  1: { partij: 'melodie', forgiveness: 'low' },
-  2: { partij: 'achtergrond', forgiveness: 'high' },
-  3: { partij: 'melodie', forgiveness: 'high' },
-  4: { partij: 'achtergrond', forgiveness: 'high' }
+  1: { partij: 'melodie', forgiveness: 'high', UI: 1 },
+  2: { partij: 'achtergrond', forgiveness: 'high', UI: 1 },
+  3: { partij: 'melodie', forgiveness: 'high', UI: 2 },
+  4: { partij: 'achtergrond', forgiveness: 'high', UI: 2 }
 };
 
 function App() {
@@ -29,9 +31,23 @@ function App() {
   if (page === 'broadcast') return <Broadcast onBack={() => setPage('home')} />;
   if (page === 'watch') return <Watch onBack={() => setPage('home')} />;
   if (page === 'sound-player') {
-    console.log(`Selected Test ${selectedTest}: Partij = ${TEST_CONFIGS[selectedTest].partij}, Vergevingsgezindheid = ${TEST_CONFIGS[selectedTest].forgiveness}`);
+    console.log(`Selected Test ${selectedTest}: Partij = ${TEST_CONFIGS[selectedTest].partij}, Vergevingsgezindheid = ${TEST_CONFIGS[selectedTest].forgiveness}, UI = ${TEST_CONFIGS[selectedTest].UI}`);
     return <FullScorePlayer partij={TEST_CONFIGS[selectedTest].partij} forgiveness={TEST_CONFIGS[selectedTest].forgiveness} onBack={() => setPage('home')} />;
   }
+  if (page === 'ui1') {
+    console.log(`Selected Test ${selectedTest}: Partij = ${TEST_CONFIGS[selectedTest].partij}, Vergevingsgezindheid = ${TEST_CONFIGS[selectedTest].forgiveness}, UI = ${TEST_CONFIGS[selectedTest].UI}`);
+    return <UI1 partij={TEST_CONFIGS[selectedTest].partij} forgiveness={TEST_CONFIGS[selectedTest].forgiveness} onBack={() => setPage('home')} />;
+  }
+
+  const handleStartTest = () => {
+    const config = TEST_CONFIGS[selectedTest];
+
+    if (config.UI === 1) {
+      setPage('ui1');
+    } else {
+      setPage('sound-player');
+    }
+  };
 
   return (
     <div className="App">
@@ -58,15 +74,14 @@ function App() {
               onChange={(e) => setSelectedTest(parseInt(e.target.value))}
               style={{ color: 'black', fontSize: '16px', borderRadius: '5px' }}
             >
-              <option value="1">Test 1</option>
-              <option value="2">Test 2</option>
-              <option value="3">Test 3</option>
-              <option value="4">Test 4</option>
+              <option value="1">Test 1: Melodiepartij, Hoge Vergevingsgezindheid, UI 1</option>
+              <option value="2">Test 2: Achtergrondpartij, Hoge Vergevingsgezindheid, UI 1</option>
+              <option value="3">Test 3: Melodiepartij, Hoge Vergevingsgezindheid, UI 2</option>
+              <option value="4">Test 4: Achtergrondpartij, Hoge Vergevingsgezindheid, UI 2</option>
             </select>
+
           </div>
-          <button onClick={() => setPage('sound-player')}>
-            Start video met test {selectedTest}
-          </button>
+          <button onClick={handleStartTest}> Start video met test {selectedTest} </button>
         </div>
       </header>
     </div>
