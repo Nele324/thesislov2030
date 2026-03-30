@@ -38,7 +38,7 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, onBack }) => {
         };
         if (isPlaying) frameId = requestAnimationFrame(update);
         return () => cancelAnimationFrame(frameId);
-    }, [isPlaying]);
+    }, [isPlaying, partijOffset, OFFSET]);
 
     React.useEffect(() => {
         const handleResize = () => setScreenWidth(window.innerWidth);
