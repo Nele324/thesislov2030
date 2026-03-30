@@ -126,7 +126,7 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, videoRef }: UseMusicPl
             }
         }
         requestRef.current = requestAnimationFrame(animate);
-    }, [isPlaying, noteGroups, player, forgiveness, ui]);
+    }, [videoRef, isPlaying, noteGroups, player, forgiveness, ui, PIXELS_PER_SECOND, HIT_ZONE_Y_PERCENT, OFFSET, partijOffset]);
 
     useEffect(() => {
         if (isPlaying) requestRef.current = requestAnimationFrame(animate);
