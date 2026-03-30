@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useMusicPlayer } from '../soundfont&animate'; // Importeer de logica
+import { useMusicPlayer } from './soundfontANDanimate';
 
 interface UI1Props {
     partij: 'melodie' | 'achtergrond';
