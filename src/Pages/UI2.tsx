@@ -2,21 +2,60 @@ import React, { useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMusicPlayer } from '../soundfont&animate'; // Importeer de logica
 
-interface UI1Props {
+interface UI2Props {
     partij: 'melodie' | 'achtergrond';
     forgiveness: 'low' | 'high';
     ui: 1 | 2;
     onBack?: () => void;
 }
 
-const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, onBack }) => {
+const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, onBack }) => {
     const videoRef = useRef<HTMLVideoElement | null>(null);
+    const [countdown, setCountdown] = React.useState<string | null>(null);
+    const [screenWidth, setScreenWidth] = React.useState(window.innerWidth);
 
     const {
         isPlayerReady, isMidiReady, isPlaying, setIsPlaying,
-        noteGroups, blockRefs, activeKeys, buttonPresses,
-        PIXELS_PER_SECOND, HIT_ZONE_Y_PERCENT
+        noteGroups, activeKeys, buttonPresses,
+        correctNoteId,
+        partijOffset, OFFSET
     } = useMusicPlayer({ partij, forgiveness, ui, videoRef });
+
+    React.useEffect(() => {
+        let frameId: number;
+        const update = () => {
+            if (videoRef.current && isPlaying) {
+                const currentTime = videoRef.current.currentTime;
+
+                if (currentTime < partijOffset + OFFSET - 4) setCountdown(null);
+                else if (currentTime < partijOffset + OFFSET - 3) setCountdown("3");
+                else if (currentTime < partijOffset + OFFSET - 2) setCountdown("2");
+                else if (currentTime < partijOffset + OFFSET - 1) setCountdown("1");
+                else if (currentTime < partijOffset + OFFSET) setCountdown("Start!");
+                else setCountdown(null);
+            }
+            frameId = requestAnimationFrame(update);
+        };
+        if (isPlaying) frameId = requestAnimationFrame(update);
+        return () => cancelAnimationFrame(frameId);
+    }, [isPlaying]);
+
+    React.useEffect(() => {
+        const handleResize = () => setScreenWidth(window.innerWidth);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    const dynamicPPS = React.useMemo(() => {
+        if (noteGroups.length === 0) return 40;
+
+        const lastNote = noteGroups[noteGroups.length - 1];
+        const totalDuration = lastNote.time + lastNote.duration;
+
+        // We laten een marge van 100px (25px links, 25px rechts)
+        const availableWidth = screenWidth - 200;
+        return availableWidth / totalDuration;
+    }, [noteGroups, screenWidth]);
 
     return (
         <div className="relative w-screen h-screen overflow-hidden bg-black flex text-white">
@@ -52,36 +91,30 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, onBack }) => {
                 <button onClick={onBack} className="text-gray-400 hover:text-white transition-colors text-2xl">←</button>
             </div>
 
-            <div className="absolute left-12 bottom-0 w-48 h-full z-10 flex flex-col items-center">
-                <div className="absolute inset-0 w-full bg-gradient-to-t from-amber-600/20 via-amber-900/5 to-transparent" />
-                <div className="absolute w-full h-1 bg-amber-500/60 shadow-[0_0_20px_rgba(255,215,0,0.8)]" style={{ top: `${HIT_ZONE_Y_PERCENT}%` }} />
+            {/* Countdown Overlay */}
+            <AnimatePresence>
+                {countdown && (
+                    <motion.div
+                        key={countdown}
+                        initial={{ opacity: 0, scale: 0.5 }}
+                        animate={{ opacity: 1, scale: 1.2 }}
+                        exit={{ opacity: 0, scale: 2 }}
+                        className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none"
+                    >
+                        <span className="text-9xl font-black text-amber-400 drop-shadow-[0_0_30px_rgba(212,175,55,0.8)]">
+                            {countdown}
+                        </span>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
-                <div className="relative w-full h-full overflow-hidden">
-                    {noteGroups.map((note, index) => (
-                        <div
-                            key={note.id}
-                            ref={el => { blockRefs.current[index] = el; }}
-                            data-time={note.time}
-                            className="absolute left-1/2 flex items-end justify-center rounded-full border-2 border-amber-300 shadow-[0_0_15px_rgba(232,196,104,0.4)]"
-                            style={{
-                                width: '97px',
-                                height: `${Math.max((note.duration - 0.03) * PIXELS_PER_SECOND, 60)}px`,
-                                marginTop: `-${Math.max(note.duration * PIXELS_PER_SECOND, 60)}px`,
-                                background: `linear-gradient(to top, #E8C468 0%, #C9A961 40%, #8B7355 100%)`,
-                                top: 0,
-                                willChange: 'transform',
-                                zIndex: 5,
-                            }}
-                        />
-                    ))}
-                </div>
+            <div className="absolute bottom-10 left-0 w-full h-40 z-20 flex items-center px-6 gap-4">
 
                 {/* DE BUTTON (Vast op de hit-line) */}
-                <div className="absolute z-40" style={{ top: `${HIT_ZONE_Y_PERCENT}%`, transform: 'translateY(-50%)' }}>
-
-                    {/* AANGEPAST: De motion.div zit nu om de HELE knop heen */}
+                <div className="flex-shrink-0">
                     <motion.div
-                        className="relative w-24 h-24"
+                        className="relative"
+                        style={{ width: '80px', height: '80px' }}
                         animate={{
                             y: activeKeys.has(0) ? 8 : 0, // Hele knop gaat omlaag
                             scale: activeKeys.has(0) ? 0.92 : 1 // Hele knop krimpt iets
@@ -129,11 +162,11 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, onBack }) => {
                         <div
                             className="absolute rounded-full z-20 overflow-hidden border border-[#D4AF37]/60"
                             style={{
-                                bottom: '12px',
-                                right: '12px',
+                                bottom: '10px',
+                                right: '10px',
 
-                                width: '45px',
-                                height: '45px',
+                                width: '35px',
+                                height: '35px',
 
                                 background: `radial-gradient(circle at 40% 40%, #FFFDF8 0%, #F5F1E1 50%, #E0DBCF 100%)`,
                                 boxShadow: '0 3px 6px rgba(0,0,0,0.7)',
@@ -156,9 +189,44 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, onBack }) => {
 
                     </motion.div>
                 </div>
-            </div >
+
+                {/* De Statische Partituur Container */}
+                <div className="flex-1 h-20 bg-black/40 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden relative">
+                    <div
+                        className="relative h-full"
+                        style={{
+                            width: `${screenWidth - 200}px`,
+                            marginLeft: '25px'
+                        }}
+                    >
+                        {noteGroups.map((note) => {
+                            const isCorrect = note.id === correctNoteId;
+                            return (
+                                <motion.div
+                                    key={note.id}
+                                    animate={{
+                                        backgroundColor: isCorrect ? '#4ADE80' : 'rgba(212, 175, 55, 0)', // Groen vs Transparant
+                                        borderColor: isCorrect ? '#22C55E' : 'rgba(251, 191, 36, 0.5)', // Donkergroen vs Amber
+                                        scale: isCorrect ? 1.05 : 1, // Maak 'm net iets groter
+                                        boxShadow: isCorrect ? '0 0 20px rgba(74, 222, 128, 0.7)' : '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                                    }}
+                                    transition={{ duration: 0.1 }} // Snelle reactie
+                                    className="absolute top-1/4 -translate-y-1/2 h-12 rounded-md border border-amber-400/50 flex items-center justify-center text-[10px] font-bold text-white shadow-lg"
+                                    style={{
+                                        left: `${note.time * dynamicPPS}px`,
+                                        width: `${(note.duration - 0.03) * dynamicPPS}px`,
+                                        background: `linear-gradient(180deg, #D4AF37 0%, #8B7355 100%)`,
+                                    }}
+                                >
+                                </motion.div>
+                            );
+
+                        })}
+                    </div>
+                </div>
+            </div>
         </div >
     );
 };
 
-export default UI1;
+export default UI2;

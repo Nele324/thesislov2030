@@ -14,10 +14,11 @@ export interface NoteGroup {
 interface UseMusicPlayerProps {
     partij: 'melodie' | 'achtergrond';
     forgiveness: 'low' | 'high';
+    ui: 1 | 2;
     videoRef: React.RefObject<HTMLVideoElement | null>;
 }
 
-export const useMusicPlayer = ({ partij, forgiveness, videoRef }: UseMusicPlayerProps) => {
+export const useMusicPlayer = ({ partij, forgiveness, ui, videoRef }: UseMusicPlayerProps) => {
     const [player, setPlayer] = useState<Player | null>(null);
     const [noteGroups, setNoteGroups] = useState<NoteGroup[]>([]);
     const [isPlayerReady, setIsPlayerReady] = useState(false);
@@ -25,6 +26,7 @@ export const useMusicPlayer = ({ partij, forgiveness, videoRef }: UseMusicPlayer
     const [isPlaying, setIsPlaying] = useState(false);
     const [activeKeys, setActiveKeys] = useState<Set<number>>(new Set());
     const [buttonPresses, setButtonPresses] = useState<{ id: number }[]>([]);
+    const [correctNoteId, setCorrectNoteId] = useState<string | null>(null);
 
     const requestRef = useRef<number | null>(null);
     const blockRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -34,8 +36,9 @@ export const useMusicPlayer = ({ partij, forgiveness, videoRef }: UseMusicPlayer
     const audioContext = useRef<AudioContext | null>(null);
     const hasPlayedCurrentNote = useRef(false);
     const feedbackIdRef = useRef(0);
+    const partijOffset = useRef(0);
 
-    const PIXELS_PER_SECOND = 350;
+    const PIXELS_PER_SECOND = ui === 1 ? 350 : 40;
     const HIT_ZONE_Y_PERCENT = 85;
     const OFFSET = 4.8;
     const FORGIVENESS_MARGIN = 0.15;
@@ -68,9 +71,12 @@ export const useMusicPlayer = ({ partij, forgiveness, videoRef }: UseMusicPlayer
 
         Midi.fromUrl(link).then(midi => {
             const track = midi.tracks.find(t => t.notes.length > 0) || midi.tracks[0];
-            setNoteGroups(track.notes.filter(n => n.duration > 0.05).map((note, i) => ({
-                time: note.time,
-                duration: Math.max(note.duration - 0.03, 0.03),
+            const rawNotes = track.notes.filter(n => n.duration > 0.05);
+            const firstNoteStartTime = rawNotes.length > 0 ? rawNotes[0].time : 0;
+            partijOffset.current = firstNoteStartTime;
+            setNoteGroups(rawNotes.filter(n => n.duration > 0.05).map((note, i) => ({
+                time: note.time - firstNoteStartTime,
+                duration: Math.max(note.duration, 0.03),
                 weergaveNaam: getSaxNootNaam(note.midi + transposition),
                 klinkendeNaam: note.name,
                 velocity: note.velocity,
@@ -82,17 +88,19 @@ export const useMusicPlayer = ({ partij, forgiveness, videoRef }: UseMusicPlayer
 
     const animate = useCallback(() => {
         if (!videoRef.current || !isPlaying || !player) return;
-        const currentTime = videoRef.current.currentTime - OFFSET;
+        const currentTime = videoRef.current.currentTime - partijOffset.current - OFFSET;
         const hitZonePixelPos = window.innerHeight * (HIT_ZONE_Y_PERCENT / 100);
 
-        blockRefs.current.forEach((block, i) => {
-            if (block) {
-                const noteTime = parseFloat(block.getAttribute('data-time') || "0");
-                const y = hitZonePixelPos - (noteTime - currentTime) * PIXELS_PER_SECOND;
-                block.style.transform = `translate(-50%, ${y}px)`;
-                block.style.display = (y < -2000 || y > window.innerHeight + 500) ? 'none' : 'flex';
-            }
-        });
+        if (ui === 1) {
+            blockRefs.current.forEach((block, i) => {
+                if (block) {
+                    const noteTime = parseFloat(block.getAttribute('data-time') || "0");
+                    const y = hitZonePixelPos - (noteTime - currentTime) * PIXELS_PER_SECOND;
+                    block.style.transform = `translate(-50%, ${y}px)`;
+                    block.style.display = (y < -2000 || y > window.innerHeight + 500) ? 'none' : 'flex';
+                }
+            });
+        }
 
         const nowNoteIndex = noteGroups.findIndex(n => currentTime >= n.time && currentTime <= (n.time + n.duration));
 
@@ -103,6 +111,7 @@ export const useMusicPlayer = ({ partij, forgiveness, videoRef }: UseMusicPlayer
                 activeNoteEvent.current = player.play(note.klinkendeNaam, audioContext.current!.currentTime, { gain: 0.5 });
                 currentNoteIndexRef.current = nowNoteIndex;
                 hasPlayedCurrentNote.current = true;
+                setCorrectNoteId(note.id);
             } else if (!canPlay) {
                 hasPlayedCurrentNote.current = true;
             }
@@ -113,10 +122,11 @@ export const useMusicPlayer = ({ partij, forgiveness, videoRef }: UseMusicPlayer
             if (!currentNote || currentTime > (currentNote.time + currentNote.duration) || !isKeyDown.current || nowNoteIndex === -1) {
                 activeNoteEvent.current.stop();
                 activeNoteEvent.current = null;
+                setCorrectNoteId(null);
             }
         }
         requestRef.current = requestAnimationFrame(animate);
-    }, [isPlaying, noteGroups, player, forgiveness]);
+    }, [isPlaying, noteGroups, player, forgiveness, ui]);
 
     useEffect(() => {
         if (isPlaying) requestRef.current = requestAnimationFrame(animate);
@@ -151,6 +161,7 @@ export const useMusicPlayer = ({ partij, forgiveness, videoRef }: UseMusicPlayer
     return {
         isPlayerReady, isMidiReady, isPlaying, setIsPlaying,
         noteGroups, blockRefs, activeKeys, buttonPresses,
-        PIXELS_PER_SECOND, HIT_ZONE_Y_PERCENT
+        PIXELS_PER_SECOND, HIT_ZONE_Y_PERCENT, correctNoteId,
+        partijOffset: partijOffset.current, OFFSET
     };
 };

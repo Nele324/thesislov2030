@@ -7,8 +7,9 @@ import Broadcast from './Broadcast';
 import Watch from './Watch';
 import FullScorePlayer from './soundfont';
 import UI1 from './UI1';
+import UI2 from './UI2';
 
-type Page = 'home' | 'tone' | 'broadcast' | 'watch' | 'sound-player' | 'ui1';
+type Page = 'home' | 'tone' | 'broadcast' | 'watch' | 'sound-player' | 'ui1' | 'ui2';
 
 interface TestConfig {
   partij: 'melodie' | 'achtergrond';
@@ -36,7 +37,11 @@ function App() {
   }
   if (page === 'ui1') {
     console.log(`Selected Test ${selectedTest}: Partij = ${TEST_CONFIGS[selectedTest].partij}, Vergevingsgezindheid = ${TEST_CONFIGS[selectedTest].forgiveness}, UI = ${TEST_CONFIGS[selectedTest].UI}`);
-    return <UI1 partij={TEST_CONFIGS[selectedTest].partij} forgiveness={TEST_CONFIGS[selectedTest].forgiveness} onBack={() => setPage('home')} />;
+    return <UI1 partij={TEST_CONFIGS[selectedTest].partij} forgiveness={TEST_CONFIGS[selectedTest].forgiveness} ui={TEST_CONFIGS[selectedTest].UI} onBack={() => setPage('home')} />;
+  }
+  if (page === 'ui2') {
+    console.log(`Selected Test ${selectedTest}: Partij = ${TEST_CONFIGS[selectedTest].partij}, Vergevingsgezindheid = ${TEST_CONFIGS[selectedTest].forgiveness}, UI = ${TEST_CONFIGS[selectedTest].UI}`);
+    return <UI2 partij={TEST_CONFIGS[selectedTest].partij} forgiveness={TEST_CONFIGS[selectedTest].forgiveness} ui={TEST_CONFIGS[selectedTest].UI} onBack={() => setPage('home')} />;
   }
 
   const handleStartTest = () => {
@@ -45,7 +50,7 @@ function App() {
     if (config.UI === 1) {
       setPage('ui1');
     } else {
-      setPage('sound-player');
+      setPage('ui2');
     }
   };
 
