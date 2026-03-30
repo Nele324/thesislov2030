@@ -4,6 +4,6 @@ import App from '../Pages/App';
 
 test('renders Choose Mode header', () => {
   render(<App />);
-  const headerElement = screen.getByText(/choose mode/i);
+  const headerElement = screen.getByText(/Kies een Test Scenario/i);
   expect(headerElement).toBeInTheDocument();
 });
