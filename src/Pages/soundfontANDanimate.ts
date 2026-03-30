@@ -165,3 +165,5 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, videoRef }: UseMusicPl
         partijOffset: partijOffset.current, OFFSET
     };
 };
+
+export default useMusicPlayer;

@@ -5,7 +5,6 @@ import '../css/App.css';
 import Tone from './Tone';
 import Broadcast from './Broadcast';
 import Watch from './Watch';
-import FullScorePlayer from './soundfont';
 import UI1 from './UI1';
 import UI2 from './UI2';
 
@@ -31,10 +30,6 @@ function App() {
   if (page === 'tone') return <Tone onBack={() => setPage('home')} />;
   if (page === 'broadcast') return <Broadcast onBack={() => setPage('home')} />;
   if (page === 'watch') return <Watch onBack={() => setPage('home')} />;
-  if (page === 'sound-player') {
-    console.log(`Selected Test ${selectedTest}: Partij = ${TEST_CONFIGS[selectedTest].partij}, Vergevingsgezindheid = ${TEST_CONFIGS[selectedTest].forgiveness}, UI = ${TEST_CONFIGS[selectedTest].UI}`);
-    return <FullScorePlayer partij={TEST_CONFIGS[selectedTest].partij} forgiveness={TEST_CONFIGS[selectedTest].forgiveness} onBack={() => setPage('home')} />;
-  }
   if (page === 'ui1') {
     console.log(`Selected Test ${selectedTest}: Partij = ${TEST_CONFIGS[selectedTest].partij}, Vergevingsgezindheid = ${TEST_CONFIGS[selectedTest].forgiveness}, UI = ${TEST_CONFIGS[selectedTest].UI}`);
     return <UI1 partij={TEST_CONFIGS[selectedTest].partij} forgiveness={TEST_CONFIGS[selectedTest].forgiveness} ui={TEST_CONFIGS[selectedTest].UI} onBack={() => setPage('home')} />;
