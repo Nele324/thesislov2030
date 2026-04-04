@@ -40,8 +40,9 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, videoRef }: UseMusicPl
 
     const PIXELS_PER_SECOND = ui === 1 ? 350 : 40;
     const HIT_ZONE_Y_PERCENT = 85;
-    const OFFSET = 4.8;
+    //const OFFSET = 4.8;
     const FORGIVENESS_MARGIN = 0.15;
+    const PRE_HIT_MARGIN = 0.2;
 
     const getSaxNootNaam = (midiNumber: number): string => {
         const namen = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "Sib", "Si"];
@@ -61,7 +62,7 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, videoRef }: UseMusicPl
         setIsMidiReady(false);
         let link = partij === 'melodie' ? "/scores/How_to_train_your_dragon-soprano.mid" : "/scores/How_to_train_your_dragon-bariton.mid";
         let instName: InstrumentName = partij === 'melodie' ? 'soprano_sax' : 'baritone_sax';
-        let transposition = partij === 'melodie' ? -2 : -3;
+        let transposition = partij === 'melodie' ? +2 : -3;
 
         initAudio();
         Soundfont.instrument(audioContext.current!, instName, { soundfont: 'MusyngKite' }).then(inst => {
@@ -69,6 +70,38 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, videoRef }: UseMusicPl
             setIsPlayerReady(true);
         });
 
+        Promise.all([
+            Midi.fromUrl(link),
+            fetch('/Starttijden.txt').then(res => res.text()),
+            fetch('/durations.txt').then(res => res.text())
+        ]).then(([midi, starttijdenText, durationsText]) => {
+            const handmatigeTijden = starttijdenText.trim().split('\n').map(regel => parseFloat(regel.replace(',', '.')));
+            const durations = durationsText.trim().split('\n').map(regel => parseFloat(regel.replace(',', '.')));
+
+            const track = midi.tracks.find(t => t.notes.length > 0) || midi.tracks[0];
+            const rawNotes = track.notes.filter(n => n.duration > 0.05);
+
+            if (handmatigeTijden.length !== rawNotes.length || durations.length !== rawNotes.length) {
+                console.error("Aantal handmatige tijden of duur komt niet overeen met aantal noten.");
+                setIsMidiReady(false);
+                return;
+            }
+
+            const firstNoteStartTime = rawNotes.length > 0 ? handmatigeTijden[0] : 0;
+            partijOffset.current = firstNoteStartTime;
+
+            setNoteGroups(rawNotes.filter(n => n.duration > 0.05).map((note, i) => ({
+                time: handmatigeTijden[i] !== undefined ? handmatigeTijden[i] - firstNoteStartTime : 0,
+                duration: Math.max(durations[i], 0.03),
+                weergaveNaam: getSaxNootNaam(note.midi + transposition),
+                klinkendeNaam: note.name,
+                velocity: note.velocity,
+                id: `note-${i}-${partij}`
+            })));
+            setIsMidiReady(true);
+        });
+
+        /*
         Midi.fromUrl(link).then(midi => {
             const track = midi.tracks.find(t => t.notes.length > 0) || midi.tracks[0];
             const rawNotes = track.notes.filter(n => n.duration > 0.05);
@@ -84,11 +117,13 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, videoRef }: UseMusicPl
             })));
             setIsMidiReady(true);
         });
+        */
     }, [partij]);
 
     const animate = useCallback(() => {
         if (!videoRef.current || !isPlaying || !player) return;
-        const currentTime = videoRef.current.currentTime - partijOffset.current - OFFSET;
+        const currentTime = videoRef.current.currentTime - partijOffset.current /*- OFFSET*/;
+        console.log("videoTime:", videoRef.current.currentTime);
         const hitZonePixelPos = window.innerHeight * (HIT_ZONE_Y_PERCENT / 100);
 
         if (ui === 1) {
@@ -102,7 +137,31 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, videoRef }: UseMusicPl
             });
         }
 
-        const nowNoteIndex = noteGroups.findIndex(n => currentTime >= n.time && currentTime <= (n.time + n.duration));
+        // We zoeken alle noten die "nu" bezig zijn of "binnenkort" (PRE_HIT_MARGIN) beginnen
+        const candidateIndices = noteGroups.reduce((acc, n, i) => {
+            const isInside = currentTime >= n.time && currentTime <= (n.time + n.duration);
+            const isUpcoming = currentTime < n.time && currentTime >= n.time - PRE_HIT_MARGIN;
+
+            if (isInside || isUpcoming) acc.push(i);
+            return acc;
+        }, [] as number[]);
+
+        let nowNoteIndex = -1;
+        if (candidateIndices.length > 0) {
+            // We pakken de noot waarvan de starttijd (n.time) het dichtst bij de huidige tijd ligt
+            nowNoteIndex = candidateIndices.reduce((prev, curr) => {
+                const prevDiff = Math.abs(noteGroups[prev].time - currentTime);
+                const currDiff = Math.abs(noteGroups[curr].time - currentTime);
+                return currDiff < prevDiff ? curr : prev;
+            });
+        }
+
+        /* Oude logica voor het bepalen van de huidige noot
+        const nowNoteIndex = noteGroups.findIndex(n =>
+            (currentTime >= n.time && currentTime <= (n.time + n.duration)) ||
+            (currentTime < n.time && currentTime >= n.time - PRE_HIT_MARGIN)
+        );
+        */
 
         if (isKeyDown.current && !hasPlayedCurrentNote.current && nowNoteIndex !== -1) {
             const note = noteGroups[nowNoteIndex];
@@ -126,7 +185,7 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, videoRef }: UseMusicPl
             }
         }
         requestRef.current = requestAnimationFrame(animate);
-    }, [videoRef, isPlaying, noteGroups, player, forgiveness, ui, PIXELS_PER_SECOND, HIT_ZONE_Y_PERCENT, OFFSET, partijOffset]);
+    }, [videoRef, isPlaying, noteGroups, player, forgiveness, ui, PIXELS_PER_SECOND, HIT_ZONE_Y_PERCENT, /*OFFSET,*/ partijOffset]);
 
     useEffect(() => {
         if (isPlaying) requestRef.current = requestAnimationFrame(animate);
@@ -158,11 +217,36 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, videoRef }: UseMusicPl
         return () => { window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp); };
     }, []);
 
+    const exportToExcel = () => {
+        // 1. Maak de headers
+        const headers = "Nootnaam;Duur (s);Starttijd (s)";
+
+        // 2. Map de data naar rijen (gebruik ; als scheidingsteken voor Europese Excel)
+        const rows = noteGroups.map(n => {
+            const name = n.weergaveNaam;
+            const duration = n.duration.toFixed(3).replace('.', ',');
+            const startTime = (n.time + partijOffset.current).toFixed(4).replace('.', ',');
+            return `${name};${duration};${startTime}`;
+        }).join("\n");
+
+        // 3. Combineer en log naar de console
+        const csvContent = `${headers}\n${rows}`;
+        console.log("--- KOPIEER DE ONDERSTAANDE DATA NAAR EXCEL ---");
+        console.log(csvContent);
+        console.log("----------------------------------------------");
+    };
+    // Roep dit bijvoorbeeld eenmalig aan zodra de MIDI klaar is
+    useEffect(() => {
+        if (isMidiReady && noteGroups.length > 0) {
+            exportToExcel();
+        }
+    }, [isMidiReady, noteGroups]);
+
     return {
         isPlayerReady, isMidiReady, isPlaying, setIsPlaying,
         noteGroups, blockRefs, activeKeys, buttonPresses,
         PIXELS_PER_SECOND, HIT_ZONE_Y_PERCENT, correctNoteId,
-        partijOffset: partijOffset.current, OFFSET
+        partijOffset: partijOffset.current, /*OFFSET*/
     };
 };
 

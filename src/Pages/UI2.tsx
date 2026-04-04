@@ -13,12 +13,13 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, onBack }) => {
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const [countdown, setCountdown] = React.useState<string | null>(null);
     const [screenWidth, setScreenWidth] = React.useState(window.innerWidth);
+    const [playedCorrectly, setPlayedCorrectly] = React.useState<Set<string>>(new Set());
 
     const {
         isPlayerReady, isMidiReady, isPlaying, setIsPlaying,
         noteGroups, activeKeys, buttonPresses,
         correctNoteId,
-        partijOffset, OFFSET
+        partijOffset, /*OFFSET*/
     } = useMusicPlayer({ partij, forgiveness, ui, videoRef });
 
     React.useEffect(() => {
@@ -27,18 +28,18 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, onBack }) => {
             if (videoRef.current && isPlaying) {
                 const currentTime = videoRef.current.currentTime;
 
-                if (currentTime < partijOffset + OFFSET - 4) setCountdown(null);
-                else if (currentTime < partijOffset + OFFSET - 3) setCountdown("3");
-                else if (currentTime < partijOffset + OFFSET - 2) setCountdown("2");
-                else if (currentTime < partijOffset + OFFSET - 1) setCountdown("1");
-                else if (currentTime < partijOffset + OFFSET) setCountdown("Start!");
+                if (currentTime < partijOffset + /*OFFSET*/ - 4) setCountdown(null);
+                else if (currentTime < partijOffset + /*OFFSET*/ - 3) setCountdown("3");
+                else if (currentTime < partijOffset + /*OFFSET*/ - 2) setCountdown("2");
+                else if (currentTime < partijOffset + /*OFFSET*/ - 1) setCountdown("1");
+                else if (currentTime < partijOffset /*+ OFFSET*/) setCountdown("Start!");
                 else setCountdown(null);
             }
             frameId = requestAnimationFrame(update);
         };
         if (isPlaying) frameId = requestAnimationFrame(update);
         return () => cancelAnimationFrame(frameId);
-    }, [isPlaying, partijOffset, OFFSET]);
+    }, [isPlaying, partijOffset, /*OFFSET*/]);
 
     React.useEffect(() => {
         const handleResize = () => setScreenWidth(window.innerWidth);
@@ -56,6 +57,12 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, onBack }) => {
         const availableWidth = screenWidth - 200;
         return availableWidth / totalDuration;
     }, [noteGroups, screenWidth]);
+
+    React.useEffect(() => {
+        if (correctNoteId) {
+            setPlayedCorrectly(prev => new Set(prev).add(correctNoteId));
+        }
+    }, [correctNoteId]);
 
     return (
         <div className="relative w-screen h-screen overflow-hidden bg-black flex text-white">
@@ -201,12 +208,13 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, onBack }) => {
                     >
                         {noteGroups.map((note) => {
                             const isCorrect = note.id === correctNoteId;
+                            const wasEverCorrect = playedCorrectly.has(note.id);
                             return (
                                 <motion.div
                                     key={note.id}
                                     animate={{
-                                        backgroundColor: isCorrect ? '#4ADE80' : 'rgba(212, 175, 55, 0)', // Groen vs Transparant
-                                        borderColor: isCorrect ? '#22C55E' : 'rgba(251, 191, 36, 0.5)', // Donkergroen vs Amber
+                                        backgroundColor: isCorrect ? '#4ADE80' : wasEverCorrect ? '#3B82F6' : 'rgba(212, 175, 55, 0)',
+                                        borderColor: isCorrect ? '#22C55E' : wasEverCorrect ? '#3B82F6' : 'rgba(251, 191, 36, 0.5)',
                                         scale: isCorrect ? 1.05 : 1, // Maak 'm net iets groter
                                         boxShadow: isCorrect ? '0 0 20px rgba(74, 222, 128, 0.7)' : '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                                     }}
@@ -215,7 +223,7 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, onBack }) => {
                                     style={{
                                         left: `${note.time * dynamicPPS}px`,
                                         width: `${(note.duration - 0.03) * dynamicPPS}px`,
-                                        background: `linear-gradient(180deg, #D4AF37 0%, #8B7355 100%)`,
+                                        background: wasEverCorrect ? 'linear-gradient(180deg, #3B82F6 0%, #1E40AF 100%)' : `linear-gradient(180deg, #D4AF37 0%, #8B7355 100%)`,
                                     }}
                                 >
                                 </motion.div>

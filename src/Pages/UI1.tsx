@@ -52,7 +52,7 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, onBack }) => {
                 <button onClick={onBack} className="text-gray-400 hover:text-white transition-colors text-2xl">←</button>
             </div>
 
-            <div className="absolute left-12 bottom-0 w-48 h-full z-10 flex flex-col items-center">
+            <div className="absolute left-1/2 bottom-0 w-48 h-full z-10 flex flex-col items-center">
                 <div className="absolute inset-0 w-full bg-gradient-to-t from-amber-600/20 via-amber-900/5 to-transparent" />
                 <div className="absolute w-full h-1 bg-amber-500/60 shadow-[0_0_20px_rgba(255,215,0,0.8)]" style={{ top: `${HIT_ZONE_Y_PERCENT}%` }} />
 
@@ -72,7 +72,12 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, onBack }) => {
                                 willChange: 'transform',
                                 zIndex: 5,
                             }}
-                        />
+                        >
+                            {/* Note Label: Nu gecentreerd binnen de div */}
+                            <div className="w-full text-center text-xs font-bold text-amber-900 drop-shadow-sm">
+                                {note.weergaveNaam}
+                            </div>
+                        </div>
                     ))}
                 </div>
 
