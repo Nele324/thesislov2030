@@ -26,28 +26,48 @@ const TEST_CONFIGS: Record<number, TestConfig> = {
 function App() {
   const [page, setPage] = useState<Page>('home');
   const [selectedTest, setSelectedTest] = useState<number>(1);
+  const [isTutorial, setIsTutorial] = useState<boolean>(true);
+
+  const handleBack = () => {
+    setPage('home');
+    setIsTutorial(true); // Reset naar tutorial voor de volgende keer
+  };
+
+  const handleStartTest = () => {
+    setIsTutorial(true); // Altijd beginnen met de tutorial
+    const config = TEST_CONFIGS[selectedTest];
+    setPage(config.UI === 1 ? 'ui1' : 'ui2');
+  };
 
   if (page === 'tone') return <Tone onBack={() => setPage('home')} />;
   if (page === 'broadcast') return <Broadcast onBack={() => setPage('home')} />;
   if (page === 'watch') return <Watch onBack={() => setPage('home')} />;
   if (page === 'ui1') {
     console.log(`Selected Test ${selectedTest}: Partij = ${TEST_CONFIGS[selectedTest].partij}, Vergevingsgezindheid = ${TEST_CONFIGS[selectedTest].forgiveness}, UI = ${TEST_CONFIGS[selectedTest].UI}`);
-    return <UI1 partij={TEST_CONFIGS[selectedTest].partij} forgiveness={TEST_CONFIGS[selectedTest].forgiveness} ui={TEST_CONFIGS[selectedTest].UI} onBack={() => setPage('home')} />;
+    return (
+      <UI1
+        partij={TEST_CONFIGS[selectedTest].partij}
+        forgiveness={TEST_CONFIGS[selectedTest].forgiveness}
+        ui={TEST_CONFIGS[selectedTest].UI}
+        tutorial={isTutorial}
+        onBack={() => { handleBack(); }}
+        onStartTest={() => setIsTutorial(false)}
+      />
+    );
   }
   if (page === 'ui2') {
     console.log(`Selected Test ${selectedTest}: Partij = ${TEST_CONFIGS[selectedTest].partij}, Vergevingsgezindheid = ${TEST_CONFIGS[selectedTest].forgiveness}, UI = ${TEST_CONFIGS[selectedTest].UI}`);
-    return <UI2 partij={TEST_CONFIGS[selectedTest].partij} forgiveness={TEST_CONFIGS[selectedTest].forgiveness} ui={TEST_CONFIGS[selectedTest].UI} onBack={() => setPage('home')} />;
+    return (
+      <UI2
+        partij={TEST_CONFIGS[selectedTest].partij}
+        forgiveness={TEST_CONFIGS[selectedTest].forgiveness}
+        ui={TEST_CONFIGS[selectedTest].UI}
+        tutorial={isTutorial}
+        onBack={() => { handleBack(); }}
+        onStartTest={() => setIsTutorial(false)}
+      />
+    );
   }
-
-  const handleStartTest = () => {
-    const config = TEST_CONFIGS[selectedTest];
-
-    if (config.UI === 1) {
-      setPage('ui1');
-    } else {
-      setPage('ui2');
-    }
-  };
 
   return (
     <div className="App">
