@@ -6,11 +6,14 @@ interface UI2Props {
     partij: 'melodie' | 'achtergrond';
     forgiveness: 'low' | 'high';
     ui: 1 | 2;
+    tutorial?: boolean;
     onBack?: () => void;
+    onStartTest?: () => void;
 }
 
-const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, onBack }) => {
+const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, onStartTest }) => {
     const videoRef = useRef<HTMLVideoElement | null>(null);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
     const [countdown, setCountdown] = React.useState<string | null>(null);
     const [screenWidth, setScreenWidth] = React.useState(window.innerWidth);
 
@@ -18,27 +21,41 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, onBack }) => {
         isPlayerReady, isMidiReady, isPlaying, setIsPlaying,
         noteGroups, activeKeys, buttonPresses,
         correctNoteId,
-        partijOffset, OFFSET
-    } = useMusicPlayer({ partij, forgiveness, ui, videoRef });
+        resetPlayer, startTutorialMusic,
+        partijOffset, /*OFFSET*/
+    } = useMusicPlayer({ partij, forgiveness, ui, tutorial, videoRef, audioRef });
+
+    const handleTutorialAction = () => {
+        if (isPlaying) {
+            resetPlayer();
+        } else {
+            if (partij === 'melodie') {
+                startTutorialMusic("/How_to_train_your_dragon-piano-melodie.mp3");
+            } else {
+                startTutorialMusic("/How_to_train_your_dragon-piano-begeleiding.mp3");
+            }
+        }
+    };
 
     React.useEffect(() => {
         let frameId: number;
+        const media = videoRef.current || audioRef.current;
         const update = () => {
-            if (videoRef.current && isPlaying) {
-                const currentTime = videoRef.current.currentTime;
+            if (media && isPlaying) {
+                const currentTime = media.currentTime;
 
-                if (currentTime < partijOffset + OFFSET - 4) setCountdown(null);
-                else if (currentTime < partijOffset + OFFSET - 3) setCountdown("3");
-                else if (currentTime < partijOffset + OFFSET - 2) setCountdown("2");
-                else if (currentTime < partijOffset + OFFSET - 1) setCountdown("1");
-                else if (currentTime < partijOffset + OFFSET) setCountdown("Start!");
+                if (currentTime < partijOffset + /*OFFSET*/ - 4) setCountdown(null);
+                else if (currentTime < partijOffset + /*OFFSET*/ - 3) setCountdown("3");
+                else if (currentTime < partijOffset + /*OFFSET*/ - 2) setCountdown("2");
+                else if (currentTime < partijOffset + /*OFFSET*/ - 1) setCountdown("1");
+                else if (currentTime < partijOffset /*+ OFFSET*/) setCountdown("Start!");
                 else setCountdown(null);
             }
             frameId = requestAnimationFrame(update);
         };
         if (isPlaying) frameId = requestAnimationFrame(update);
         return () => cancelAnimationFrame(frameId);
-    }, [isPlaying, partijOffset, OFFSET]);
+    }, [isPlaying, partijOffset, /*OFFSET*/]);
 
     React.useEffect(() => {
         const handleResize = () => setScreenWidth(window.innerWidth);
@@ -59,33 +76,58 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, onBack }) => {
 
     return (
         <div className="relative w-screen h-screen overflow-hidden bg-black flex text-white">
-            <div className="absolute inset-0 z-0">
-                <video
-                    ref={videoRef}
-                    src="/HowToTrainYourDragon.mp4"
-                    crossOrigin='anonymous'
-                    className="w-full h-full object-cover opacity-80"
-                    onPlay={() => setIsPlaying(true)}
-                    onPause={() => setIsPlaying(false)}
-                    onEnded={() => setIsPlaying(false)}
-                    controls
-                />
-            </div>
-
-            <AnimatePresence>
-                {!isPlaying && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        className="absolute top-10 left-0 right-0 mx-auto w-max px-8 py-4 bg-black/60 backdrop-blur-xl rounded-2xl border border-white/20 z-30 shadow-2xl text-center"
+            {!tutorial ? (
+                <div className="absolute inset-0 z-0">
+                    <video
+                        ref={videoRef}
+                        src="/HowToTrainYourDragon.mp4"
+                        crossOrigin='anonymous'
+                        className="w-full h-full object-cover opacity-80"
+                        onPlay={() => setIsPlaying(true)}
+                        onPause={() => setIsPlaying(false)}
+                        onEnded={() => setIsPlaying(false)}
+                        controls
+                    />
+                </div>
+            ) : (
+                <div className="absolute top-6 left-6 z-50">
+                    <button
+                        onClick={handleTutorialAction}
+                        className={`px-8 py-4 rounded-2xl font-black text-xl transition-all shadow-[0_0_20px_rgba(0,0,0,0.5)] flex items-center gap-3 ${isPlaying
+                            ? "bg-red-600 hover:bg-red-700 text-white translate-y-1"
+                            : "bg-amber-500 hover:bg-amber-600 text-black hover:-translate-y-1"
+                            }`}
                     >
-                        <span className={isPlayerReady && isMidiReady ? "text-green-400" : "text-red-400"}>
-                            {isPlayerReady && isMidiReady ? "Video starten om te beginnen" : "Laden..."}
-                        </span>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                        {isPlaying ? (
+                            <>
+                                <span className="text-2xl">↺</span> RESET TUTORIAL
+                            </>
+                        ) : (
+                            <>
+                                <span className="text-2xl">▶</span> START TUTORIAL
+                            </>
+                        )}
+                    </button>
+                </div>
+            )}
+
+            {!tutorial && (
+                <AnimatePresence>
+                    {!isPlaying && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            className="absolute top-10 left-0 right-0 mx-auto w-max px-8 py-4 bg-black/60 backdrop-blur-xl rounded-2xl border border-white/20 z-30 shadow-2xl text-center"
+                        >
+
+                            <span className={isPlayerReady && isMidiReady ? "text-green-400" : "text-red-400"}>
+                                {isPlayerReady && isMidiReady ? "Video starten om te beginnen" : "Laden..."}
+                            </span>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            )}
 
             <div className="absolute top-6 right-6 z-20">
                 <button onClick={onBack} className="text-gray-400 hover:text-white transition-colors text-2xl">←</button>
@@ -205,8 +247,8 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, onBack }) => {
                                 <motion.div
                                     key={note.id}
                                     animate={{
-                                        backgroundColor: isCorrect ? '#4ADE80' : 'rgba(212, 175, 55, 0)', // Groen vs Transparant
-                                        borderColor: isCorrect ? '#22C55E' : 'rgba(251, 191, 36, 0.5)', // Donkergroen vs Amber
+                                        backgroundColor: isCorrect ? '#4ADE80' : 'rgba(212, 175, 55, 0)',
+                                        borderColor: isCorrect ? '#22C55E' : 'rgba(251, 191, 36, 0.5)',
                                         scale: isCorrect ? 1.05 : 1, // Maak 'm net iets groter
                                         boxShadow: isCorrect ? '0 0 20px rgba(74, 222, 128, 0.7)' : '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                                     }}
@@ -225,6 +267,19 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, onBack }) => {
                     </div>
                 </div>
             </div>
+            {/* KNOP NAAR EFFECTIEVE TEST (Alleen zichtbaar in tutorial mode) */}
+            {tutorial && (
+                <div className="absolute bottom-10 right-10 z-50">
+                    <button
+                        onClick={onStartTest}
+                        className="group flex flex-col items-end px-6 py-3 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-xl transition-all"
+                    >
+                        <span className="text-lg font-bold">
+                            START ECHTE TEST →
+                        </span>
+                    </button>
+                </div>
+            )}
         </div >
     );
 };
