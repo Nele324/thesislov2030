@@ -197,7 +197,7 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
             }
         }
         requestRef.current = requestAnimationFrame(animate);
-    }, [videoRef, isPlaying, noteGroups, player, forgiveness, ui, PIXELS_PER_SECOND, HIT_ZONE_Y_PERCENT, /*OFFSET,*/ partijOffset]);
+    }, [videoRef, audioRef, isPlaying, noteGroups, player, forgiveness, ui, PIXELS_PER_SECOND, HIT_ZONE_Y_PERCENT, /*OFFSET,*/ partijOffset]);
 
     const startTutorialMusic = (url: string) => {
         if (!audioRef.current) {
