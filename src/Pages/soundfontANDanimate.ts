@@ -46,6 +46,7 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
     const FORGIVENESS_MARGIN = 0.15;
     const PRE_HIT_MARGIN = 0.2;
     const START_TIJD_TUTORIAL = 25.8;
+    const HIT_LINE_OFFSET_PX = 60;
 
     const getSaxNootNaam = (midiNumber: number): string => {
         const namen = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "Sib", "Si"];
@@ -142,7 +143,7 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
             blockRefs.current.forEach((block, i) => {
                 if (block) {
                     const noteTime = parseFloat(block.getAttribute('data-time') || "0");
-                    const y = hitZonePixelPos - (noteTime - currentTime) * PIXELS_PER_SECOND;
+                    const y = hitZonePixelPos - HIT_LINE_OFFSET_PX - (noteTime - currentTime) * PIXELS_PER_SECOND;
                     block.style.transform = `translate(-50%, ${y}px)`;
                     block.style.display = (y < -2000 || y > window.innerHeight + 500) ? 'none' : 'flex';
                 }
@@ -179,7 +180,7 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
             const note = noteGroups[nowNoteIndex];
             const canPlay = forgiveness === 'high' || Math.abs(currentTime - note.time) <= FORGIVENESS_MARGIN;
             if (canPlay && currentNoteIndexRef.current !== nowNoteIndex) {
-                activeNoteEvent.current = player.play(note.klinkendeNaam, audioContext.current!.currentTime, { gain: 0.5 });
+                activeNoteEvent.current = player.play(note.klinkendeNaam, audioContext.current!.currentTime, { gain: 6 });
                 currentNoteIndexRef.current = nowNoteIndex;
                 hasPlayedCurrentNote.current = true;
                 setCorrectNoteId(note.id);

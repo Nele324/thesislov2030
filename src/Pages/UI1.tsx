@@ -93,9 +93,9 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                 <button onClick={onBack} className="text-gray-400 hover:text-white transition-colors text-2xl">←</button>
             </div>
 
-            <div className="absolute left-1/2 bottom-0 w-48 h-full z-10 flex flex-col items-center">
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-full z-10 flex flex-col items-center">
                 <div className="absolute inset-0 w-full bg-gradient-to-t from-amber-600/20 via-amber-900/5 to-transparent" />
-                <div className="absolute w-full h-1 bg-amber-500/60 shadow-[0_0_20px_rgba(255,215,0,0.8)]" style={{ top: `${HIT_ZONE_Y_PERCENT}%` }} />
+                <div className="absolute w-full h-1 bg-amber-500/60 shadow-[0_0_20px_rgba(255,215,0,0.8)]" style={{ top: `calc(${HIT_ZONE_Y_PERCENT}% - 60px)` }} />
 
                 <div className="relative w-full h-full overflow-hidden">
                     {noteGroups.map((note, index) => (
