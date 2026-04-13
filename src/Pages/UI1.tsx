@@ -14,13 +14,17 @@ interface UI1Props {
 const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, tutorial, onBack, onStartTest }) => {
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const [controlsVisible, setControlsVisible] = React.useState(true);
+    const VISUAL_OFFSET = -60;
+    const BASE_HIT_ZONE_PERCENT = controlsVisible ? 85 : 92;
+    const HIT_ZONE_WITH_OFFSET = BASE_HIT_ZONE_PERCENT + (VISUAL_OFFSET / window.innerHeight) * 100;
 
     const {
         isPlayerReady, isMidiReady, isPlaying, setIsPlaying,
         noteGroups, blockRefs, activeKeys, buttonPresses,
-        PIXELS_PER_SECOND, HIT_ZONE_Y_PERCENT,
+        PIXELS_PER_SECOND,
         startTutorialMusic, resetPlayer,
-    } = useMusicPlayer({ partij, forgiveness, ui, tutorial, videoRef, audioRef });
+    } = useMusicPlayer({ partij, forgiveness, ui, tutorial, videoRef, audioRef, hitZonePercent: HIT_ZONE_WITH_OFFSET });
 
     const handleTutorialAction = () => {
         if (isPlaying) {
@@ -33,6 +37,33 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
             }
         }
     };
+
+    React.useEffect(() => {
+        let timeout: ReturnType<typeof setTimeout>;
+        const videoEl = videoRef.current;
+
+        const showControls = () => {
+            setControlsVisible(true);
+            clearTimeout(timeout);
+
+            timeout = setTimeout(() => {
+                setControlsVisible(false);
+            }, 2000); // hide after 2s inactivity
+        };
+
+        window.addEventListener('mousemove', showControls);
+        window.addEventListener('touchstart', showControls);
+        videoEl?.addEventListener('play', showControls);
+        videoEl?.addEventListener('pause', showControls);
+
+        return () => {
+            window.removeEventListener('mousemove', showControls);
+            window.removeEventListener('touchstart', showControls);
+            videoEl?.removeEventListener('play', showControls);
+            videoEl?.removeEventListener('pause', showControls);
+            clearTimeout(timeout);
+        };
+    }, []);
 
     return (
         <div className="relative w-screen h-screen overflow-hidden bg-black flex text-white">
@@ -93,9 +124,9 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                 <button onClick={onBack} className="text-gray-400 hover:text-white transition-colors text-2xl">←</button>
             </div>
 
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-full z-10 flex flex-col items-center">
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-full z-10 flex flex-col items-center pointer-events-none">
                 <div className="absolute inset-0 w-full bg-gradient-to-t from-amber-600/20 via-amber-900/5 to-transparent" />
-                <div className="absolute w-full h-1 bg-amber-500/60 shadow-[0_0_20px_rgba(255,215,0,0.8)]" style={{ top: `calc(${HIT_ZONE_Y_PERCENT}% - 60px)` }} />
+                <div className="absolute w-full h-1 bg-amber-500/60 shadow-[0_0_20px_rgba(255,215,0,0.8)]" style={{ top: `calc(${BASE_HIT_ZONE_PERCENT}% + ${VISUAL_OFFSET}px)` }} />
 
                 <div className="relative w-full h-full overflow-hidden">
                     {noteGroups.map((note, index) => (
@@ -123,7 +154,7 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                 </div>
 
                 {/* DE BUTTON (Vast op de hit-line) */}
-                <div className="absolute z-40" style={{ top: `${HIT_ZONE_Y_PERCENT}%`, transform: 'translateY(-50%)' }}>
+                <div className="absolute z-40 pointer-events-auto" style={{ top: `${BASE_HIT_ZONE_PERCENT}%`, transform: 'translateY(-50%)' }}>
 
                     {/* AANGEPAST: De motion.div zit nu om de HELE knop heen */}
                     <motion.div
