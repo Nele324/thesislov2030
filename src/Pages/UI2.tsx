@@ -18,6 +18,7 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
     const [countdown, setCountdown] = React.useState<string | null>(null);
     const [screenWidth, setScreenWidth] = React.useState(window.innerWidth);
     const [controlsVisible, setControlsVisible] = React.useState(true);
+    const sliderRef = useRef<HTMLDivElement | null>(null);
 
     const {
         isPlayerReady, isMidiReady, isPlaying, setIsPlaying,
@@ -77,12 +78,28 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
         };
     }, []);
 
+    const dynamicPPS = React.useMemo(() => {
+        if (noteGroups.length === 0) return 40;
+
+        const lastNote = noteGroups[noteGroups.length - 1];
+        const totalDuration = lastNote.time + lastNote.duration;
+
+        const availableWidth = screenWidth - 200;
+        return availableWidth / totalDuration;
+    }, [noteGroups, screenWidth]);
+
     React.useEffect(() => {
         let frameId: number;
         const media = videoRef.current || audioRef.current;
         const update = () => {
             if (media && isPlaying) {
                 const currentTime = media.currentTime;
+
+                if (sliderRef.current) {
+                    const adjustedTime = currentTime - partijOffset;
+                    const x = Math.max(0, adjustedTime * dynamicPPS);
+                    sliderRef.current.style.transform = `translateX(${x}px)`;
+                }
 
                 if (currentTime < partijOffset - 4) setCountdown(null);
                 else if (currentTime < partijOffset - 3) setCountdown("3");
@@ -95,7 +112,7 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
         };
         if (isPlaying) frameId = requestAnimationFrame(update);
         return () => cancelAnimationFrame(frameId);
-    }, [isPlaying, partijOffset]);
+    }, [isPlaying, partijOffset, dynamicPPS]);
 
     React.useEffect(() => {
         const handleResize = () => setScreenWidth(window.innerWidth);
@@ -103,15 +120,6 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    const dynamicPPS = React.useMemo(() => {
-        if (noteGroups.length === 0) return 40;
-
-        const lastNote = noteGroups[noteGroups.length - 1];
-        const totalDuration = lastNote.time + lastNote.duration;
-
-        const availableWidth = screenWidth - 200;
-        return availableWidth / totalDuration;
-    }, [noteGroups, screenWidth]);
 
     return (
         <div ref={containerRef} className="relative w-screen h-screen overflow-hidden bg-black flex text-white">
@@ -250,6 +258,10 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                 <div className="flex-1 h-20 bg-black/60 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden relative opacity-80">
                     <div className="relative h-full"
                         style={{ width: `${screenWidth - 200}px`, marginLeft: '25px' }}>
+                        <div
+                            ref={sliderRef}
+                            className="absolute top-0 bottom-0 w-[3px] bg-gradient-to-b from-amber-300 via-amber-500 to-amber-700 shadow-[0_0_20px_rgba(255,215,0,0.8)] z-50 pointer-events-none"
+                        />
                         {noteGroups.map((note) => {
                             const isCorrect = note.id === correctNoteId;
                             return (
