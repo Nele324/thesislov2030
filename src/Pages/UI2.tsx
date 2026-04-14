@@ -12,6 +12,7 @@ interface UI2Props {
 }
 
 const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, onStartTest }) => {
+    const containerRef = useRef<HTMLDivElement | null>(null);
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [countdown, setCountdown] = React.useState<string | null>(null);
@@ -37,6 +38,17 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
         }
     };
 
+    const toggleFullscreen = async () => {
+        const el = containerRef.current;
+        if (!el) return;
+
+        if (!document.fullscreenElement) {
+            await el.requestFullscreen();
+        } else {
+            await document.exitFullscreen();
+        }
+    };
+
     React.useEffect(() => {
         let frameId: number;
         const media = videoRef.current || audioRef.current;
@@ -44,18 +56,18 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
             if (media && isPlaying) {
                 const currentTime = media.currentTime;
 
-                if (currentTime < partijOffset + /*OFFSET*/ - 4) setCountdown(null);
-                else if (currentTime < partijOffset + /*OFFSET*/ - 3) setCountdown("3");
-                else if (currentTime < partijOffset + /*OFFSET*/ - 2) setCountdown("2");
-                else if (currentTime < partijOffset + /*OFFSET*/ - 1) setCountdown("1");
-                else if (currentTime < partijOffset /*+ OFFSET*/) setCountdown("Start!");
+                if (currentTime < partijOffset + - 4) setCountdown(null);
+                else if (currentTime < partijOffset + - 3) setCountdown("3");
+                else if (currentTime < partijOffset + - 2) setCountdown("2");
+                else if (currentTime < partijOffset + - 1) setCountdown("1");
+                else if (currentTime < partijOffset) setCountdown("Start!");
                 else setCountdown(null);
             }
             frameId = requestAnimationFrame(update);
         };
         if (isPlaying) frameId = requestAnimationFrame(update);
         return () => cancelAnimationFrame(frameId);
-    }, [isPlaying, partijOffset, /*OFFSET*/]);
+    }, [isPlaying, partijOffset]);
 
     React.useEffect(() => {
         const handleResize = () => setScreenWidth(window.innerWidth);
@@ -69,13 +81,12 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
         const lastNote = noteGroups[noteGroups.length - 1];
         const totalDuration = lastNote.time + lastNote.duration;
 
-        // We laten een marge van 100px (25px links, 25px rechts)
         const availableWidth = screenWidth - 200;
         return availableWidth / totalDuration;
     }, [noteGroups, screenWidth]);
 
     return (
-        <div className="relative w-screen h-screen overflow-hidden bg-black flex text-white">
+        <div ref={containerRef} className="relative w-screen h-screen overflow-hidden bg-black flex text-white">
             {!tutorial ? (
                 <div className="absolute inset-0 z-0">
                     <video
@@ -120,7 +131,6 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                             exit={{ opacity: 0, y: -20 }}
                             className="absolute top-10 left-0 right-0 mx-auto w-max px-8 py-4 bg-black/60 backdrop-blur-xl rounded-2xl border border-white/20 z-30 shadow-2xl text-center"
                         >
-
                             <span className={isPlayerReady && isMidiReady ? "text-green-400" : "text-red-400"}>
                                 {isPlayerReady && isMidiReady ? "Video starten om te beginnen" : "Laden..."}
                             </span>
@@ -129,11 +139,23 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                 </AnimatePresence>
             )}
 
-            <div className="absolute top-6 right-6 z-20">
-                <button onClick={onBack} className="text-gray-400 hover:text-white transition-colors text-2xl">←</button>
+            <div className="absolute top-6 right-6 z-20 flex gap-4 items-center">
+                <button
+                    onClick={toggleFullscreen}
+                    className="text-gray-400 hover:text-white transition-colors text-2xl"
+                    title="Fullscreen"
+                >
+                    ⛶
+                </button>
+
+                <button
+                    onClick={onBack}
+                    className="text-gray-400 hover:text-white transition-colors text-2xl"
+                >
+                    ←
+                </button>
             </div>
 
-            {/* Countdown Overlay */}
             <AnimatePresence>
                 {countdown && (
                     <motion.div
@@ -152,18 +174,16 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
 
             <div className="absolute bottom-10 left-0 w-full h-40 z-20 flex items-center px-6 gap-4">
 
-                {/* DE BUTTON (Vast op de hit-line) */}
                 <div className="flex-shrink-0">
                     <motion.div
                         className="relative"
                         style={{ width: '80px', height: '80px' }}
                         animate={{
-                            y: activeKeys.has(0) ? 8 : 0, // Hele knop gaat omlaag
-                            scale: activeKeys.has(0) ? 0.92 : 1 // Hele knop krimpt iets
+                            y: activeKeys.has(0) ? 8 : 0,
+                            scale: activeKeys.has(0) ? 0.92 : 1
                         }}
-                        transition={{ duration: 0.1 }} // Snelle reactie
+                        transition={{ duration: 0.1 }}
                     >
-                        {/* Ripple effect (blijft hetzelfde) */}
                         <AnimatePresence>
                             {buttonPresses.map(p => (
                                 <motion.div
@@ -176,22 +196,20 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                             ))}
                         </AnimatePresence>
 
-                        {/* 2. De Gouden Cup Base (Verfijnd Antiek Goud) */}
                         <div
                             className="absolute inset-0 rounded-full border border-[#5C4B26]/30 z-10 shadow-[0_15px_30px_rgba(0,0,0,0.8)]"
                             style={{
                                 background: `
                                     radial-gradient(circle at 32% 35%, 
-                                        #f3e5abbd 0%,    /* Zachte gele highlight (Meringue) */
-                                        #D4AF37 15%,   /* Warm verzadigd goud */
-                                        #927233 60%,   /* Overgang naar brons */
-                                        #4A3718 85%,   /* Diepe schaduw */
-                                        #31250f 100%   /* Donkere rand */
+                                        #f3e5abbd 0%,
+                                        #D4AF37 15%,
+                                        #927233 60%,
+                                        #4A3718 85%,
+                                        #31250f 100%
                                     )
                                 `,
                             }}
                         >
-                            {/* Interne zachte glanslaag voor die zijdezachte metaal-look */}
                             <div
                                 className="absolute inset-0 rounded-full opacity-40 shadow-[inset_0_2px_15px_rgba(255,255,255,0.1)]"
                                 style={{
@@ -200,21 +218,17 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                             />
                         </div>
 
-                        {/* 2. De Kleine Witte Parelmoer Inleg (Gecentreerd) */}
                         <div
                             className="absolute rounded-full z-20 overflow-hidden border border-[#D4AF37]/60"
                             style={{
                                 bottom: '10px',
                                 right: '10px',
-
                                 width: '35px',
                                 height: '35px',
-
                                 background: `radial-gradient(circle at 40% 40%, #FFFDF8 0%, #F5F1E1 50%, #E0DBCF 100%)`,
                                 boxShadow: '0 3px 6px rgba(0,0,0,0.7)',
                             }}
                         >
-                            {/* De Realistische Parelmoer Swirl Textuur */}
                             <div
                                 className="absolute inset-0 opacity-100"
                                 style={{
@@ -224,15 +238,13 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                                         conic-gradient(from 180deg, transparent, rgba(166,124,0, 0.1), transparent),
                                         conic-gradient(from 0deg, transparent, rgba(166,124,0, 0.1), transparent)
                                     `,
-                                    filter: 'blur(1px)', // Swirl textuur zachter maken
+                                    filter: 'blur(1px)',
                                 }}
                             />
                         </div>
-
                     </motion.div>
                 </div>
 
-                {/* De Statische Partituur Container */}
                 <div className="flex-1 h-20 bg-black/40 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden relative">
                     <div
                         className="relative h-full"
@@ -249,10 +261,10 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                                     animate={{
                                         backgroundColor: isCorrect ? '#4ADE80' : 'rgba(212, 175, 55, 0)',
                                         borderColor: isCorrect ? '#22C55E' : 'rgba(251, 191, 36, 0.5)',
-                                        scale: isCorrect ? 1.05 : 1, // Maak 'm net iets groter
+                                        scale: isCorrect ? 1.05 : 1,
                                         boxShadow: isCorrect ? '0 0 20px rgba(74, 222, 128, 0.7)' : '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                                     }}
-                                    transition={{ duration: 0.1 }} // Snelle reactie
+                                    transition={{ duration: 0.1 }}
                                     className="absolute top-1/4 -translate-y-1/2 h-12 rounded-md border border-amber-400/50 flex items-center justify-center text-[10px] font-bold text-white shadow-lg"
                                     style={{
                                         left: `${note.time * dynamicPPS}px`,
@@ -262,12 +274,11 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                                 >
                                 </motion.div>
                             );
-
                         })}
                     </div>
                 </div>
             </div>
-            {/* KNOP NAAR EFFECTIEVE TEST (Alleen zichtbaar in tutorial mode) */}
+
             {tutorial && (
                 <div className="absolute bottom-10 right-10 z-50">
                     <button

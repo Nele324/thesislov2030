@@ -12,6 +12,7 @@ interface UI1Props {
 }
 
 const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, tutorial, onBack, onStartTest }) => {
+    const containerRef = useRef<HTMLDivElement | null>(null);
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [controlsVisible, setControlsVisible] = React.useState(true);
@@ -35,6 +36,17 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
             } else {
                 startTutorialMusic("/How_to_train_your_dragon-piano-begeleiding.mp3");
             }
+        }
+    };
+
+    const toggleFullscreen = async () => {
+        const el = containerRef.current;
+        if (!el) return;
+
+        if (!document.fullscreenElement) {
+            await el.requestFullscreen();
+        } else {
+            await document.exitFullscreen();
         }
     };
 
@@ -66,7 +78,7 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
     }, []);
 
     return (
-        <div className="relative w-screen h-screen overflow-hidden bg-black flex text-white">
+        <div ref={containerRef} className="relative w-screen h-screen overflow-hidden bg-black flex text-white">
             {!tutorial ? (
                 <div className="absolute inset-0 z-0">
                     <video
@@ -111,7 +123,6 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                             exit={{ opacity: 0, y: -20 }}
                             className="absolute top-10 left-0 right-0 mx-auto w-max px-8 py-4 bg-black/60 backdrop-blur-xl rounded-2xl border border-white/20 z-30 shadow-2xl text-center"
                         >
-
                             <span className={isPlayerReady && isMidiReady ? "text-green-400" : "text-red-400"}>
                                 {isPlayerReady && isMidiReady ? "Video starten om te beginnen" : "Laden..."}
                             </span>
@@ -119,10 +130,6 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                     )}
                 </AnimatePresence>
             )}
-
-            <div className="absolute top-6 right-6 z-20">
-                <button onClick={onBack} className="text-gray-400 hover:text-white transition-colors text-2xl">←</button>
-            </div>
 
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-full z-10 flex flex-col items-center pointer-events-none">
                 <div className="absolute inset-0 w-full bg-gradient-to-t from-amber-600/20 via-amber-900/5 to-transparent" />
@@ -145,7 +152,6 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                                 zIndex: 5,
                             }}
                         >
-                            {/* Note Label: Nu gecentreerd binnen de div */}
                             <div className="w-full text-center text-xs font-bold text-amber-900 drop-shadow-sm">
                                 {note.weergaveNaam}
                             </div>
@@ -153,19 +159,15 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                     ))}
                 </div>
 
-                {/* DE BUTTON (Vast op de hit-line) */}
                 <div className="absolute z-40 pointer-events-auto" style={{ top: `${BASE_HIT_ZONE_PERCENT}%`, transform: 'translateY(-50%)' }}>
-
-                    {/* AANGEPAST: De motion.div zit nu om de HELE knop heen */}
                     <motion.div
                         className="relative w-24 h-24"
                         animate={{
-                            y: activeKeys.has(0) ? 8 : 0, // Hele knop gaat omlaag
-                            scale: activeKeys.has(0) ? 0.92 : 1 // Hele knop krimpt iets
+                            y: activeKeys.has(0) ? 8 : 0,
+                            scale: activeKeys.has(0) ? 0.92 : 1
                         }}
-                        transition={{ duration: 0.1 }} // Snelle reactie
+                        transition={{ duration: 0.1 }}
                     >
-                        {/* Ripple effect (blijft hetzelfde) */}
                         <AnimatePresence>
                             {buttonPresses.map(p => (
                                 <motion.div
@@ -178,22 +180,20 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                             ))}
                         </AnimatePresence>
 
-                        {/* 2. De Gouden Cup Base (Verfijnd Antiek Goud) */}
                         <div
                             className="absolute inset-0 rounded-full border border-[#5C4B26]/30 z-10 shadow-[0_15px_30px_rgba(0,0,0,0.8)]"
                             style={{
                                 background: `
                                     radial-gradient(circle at 32% 35%, 
-                                        #f3e5abbd 0%,    /* Zachte gele highlight (Meringue) */
-                                        #D4AF37 15%,   /* Warm verzadigd goud */
-                                        #927233 60%,   /* Overgang naar brons */
-                                        #4A3718 85%,   /* Diepe schaduw */
-                                        #31250f 100%   /* Donkere rand */
+                                        #f3e5abbd 0%,
+                                        #D4AF37 15%,
+                                        #927233 60%,
+                                        #4A3718 85%,
+                                        #31250f 100%
                                     )
                                 `,
                             }}
                         >
-                            {/* Interne zachte glanslaag voor die zijdezachte metaal-look */}
                             <div
                                 className="absolute inset-0 rounded-full opacity-40 shadow-[inset_0_2px_15px_rgba(255,255,255,0.1)]"
                                 style={{
@@ -202,21 +202,17 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                             />
                         </div>
 
-                        {/* 2. De Kleine Witte Parelmoer Inleg (Gecentreerd) */}
                         <div
                             className="absolute rounded-full z-20 overflow-hidden border border-[#D4AF37]/60"
                             style={{
                                 bottom: '12px',
                                 right: '12px',
-
                                 width: '45px',
                                 height: '45px',
-
                                 background: `radial-gradient(circle at 40% 40%, #FFFDF8 0%, #F5F1E1 50%, #E0DBCF 100%)`,
                                 boxShadow: '0 3px 6px rgba(0,0,0,0.7)',
                             }}
                         >
-                            {/* De Realistische Parelmoer Swirl Textuur */}
                             <div
                                 className="absolute inset-0 opacity-100"
                                 style={{
@@ -226,15 +222,31 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                                         conic-gradient(from 180deg, transparent, rgba(166,124,0, 0.1), transparent),
                                         conic-gradient(from 0deg, transparent, rgba(166,124,0, 0.1), transparent)
                                     `,
-                                    filter: 'blur(1px)', // Swirl textuur zachter maken
+                                    filter: 'blur(1px)',
                                 }}
                             />
                         </div>
-
                     </motion.div>
                 </div>
-            </div >
-            {/* KNOP NAAR EFFECTIEVE TEST (Alleen zichtbaar in tutorial mode) */}
+            </div>
+
+            <div className="absolute top-6 right-6 z-20 flex gap-4 items-center">
+                <button
+                    onClick={toggleFullscreen}
+                    className="text-gray-400 hover:text-white transition-colors text-2xl"
+                    title="Fullscreen"
+                >
+                    ⛶
+                </button>
+
+                <button
+                    onClick={onBack}
+                    className="text-gray-400 hover:text-white transition-colors text-2xl"
+                >
+                    ←
+                </button>
+            </div>
+
             {tutorial && (
                 <div className="absolute bottom-10 right-10 z-50">
                     <button
@@ -247,7 +259,7 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                     </button>
                 </div>
             )}
-        </div >
+        </div>
     );
 };
 
