@@ -257,10 +257,10 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
 
                                     key={note.id}
                                     animate={{
-                                        backgroundColor: isCorrect ? '#4ADE80' : 'rgba(212, 175, 55, 0)',
-                                        borderColor: isCorrect ? '#22C55E' : 'rgba(251, 191, 36, 0.5)',
+                                        backgroundColor: isCorrect ? '#FFD36A' : 'rgba(212, 175, 55, 1)',
+                                        borderColor: isCorrect ? '#FFFFF' : 'rgba(251, 191, 36, 0.5)',
                                         scale: isCorrect ? 1.05 : 1,
-                                        boxShadow: isCorrect ? '0 0 20px rgba(74, 222, 128, 0.7)' : '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                                        boxShadow: isCorrect ? '0 0 20px rgba(255, 211, 106, 0.9), 0 0 8px rgba(255, 255, 255, 0.6)' : '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                                     }}
                                     transition={{ duration: 0.1 }}
                                     className="absolute top-1/4 -translate-y-1/2 h-12 rounded-md border border-amber-300/60 flex items-center justify-center text-[10px] font-bold text-white shadow-lg"
