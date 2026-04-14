@@ -133,7 +133,7 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
 
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-full z-10 flex flex-col items-center pointer-events-none">
                 <div className="absolute inset-0 w-full bg-gradient-to-t from-amber-600/20 via-amber-900/5 to-transparent" />
-                <div className="absolute w-full h-1 bg-amber-500/60 shadow-[0_0_20px_rgba(255,215,0,0.8)]" style={{ top: `calc(${BASE_HIT_ZONE_PERCENT}% + ${VISUAL_OFFSET}px)` }} />
+                <div className="absolute w-full h-1 bg-amber-500/60 shadow-[0_0_20px_rgba(255,215,0,0.8)] z-20" style={{ top: `calc(${BASE_HIT_ZONE_PERCENT}% + ${VISUAL_OFFSET}px)` }} />
 
                 <div className="relative w-full h-full overflow-hidden">
                     {noteGroups.map((note, index) => (
@@ -141,12 +141,12 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                             key={note.id}
                             ref={el => { blockRefs.current[index] = el; }}
                             data-time={note.time}
-                            className="absolute left-1/2 flex items-end justify-center rounded-full border-2 border-amber-300 shadow-[0_0_15px_rgba(232,196,104,0.4)]"
+                            className="absolute left-1/2 flex items-end justify-center rounded-full border-2 border-[rgba(252,211,77,0.7)] shadow-[0_0_15px_rgba(232,196,104,0.4)]"
                             style={{
                                 width: '97px',
                                 height: `${Math.max((note.duration - 0.03) * PIXELS_PER_SECOND, 60)}px`,
                                 marginTop: `-${Math.max(note.duration * PIXELS_PER_SECOND, 60)}px`,
-                                background: `linear-gradient(to top, #E8C468 0%, #C9A961 40%, #8B7355 100%)`,
+                                background: `linear-gradient(to top, rgba(232,196,104,0.6) 0%, rgba(201,169,97,0.6) 40%, rgba(139,115,85,0.6) 100%)`,
                                 top: 0,
                                 willChange: 'transform',
                                 zIndex: 5,

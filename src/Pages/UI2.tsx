@@ -247,13 +247,14 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                     </motion.div>
                 </div>
 
-                <div className="flex-1 h-20 bg-black/40 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden relative">
+                <div className="flex-1 h-20 bg-black/60 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden relative opacity-80">
                     <div className="relative h-full"
                         style={{ width: `${screenWidth - 200}px`, marginLeft: '25px' }}>
                         {noteGroups.map((note) => {
                             const isCorrect = note.id === correctNoteId;
                             return (
                                 <motion.div
+
                                     key={note.id}
                                     animate={{
                                         backgroundColor: isCorrect ? '#4ADE80' : 'rgba(212, 175, 55, 0)',
@@ -262,13 +263,15 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                                         boxShadow: isCorrect ? '0 0 20px rgba(74, 222, 128, 0.7)' : '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                                     }}
                                     transition={{ duration: 0.1 }}
-                                    className="absolute top-1/4 -translate-y-1/2 h-12 rounded-md border border-amber-400/50 flex items-center justify-center text-[10px] font-bold text-white shadow-lg"
+                                    className="absolute top-1/4 -translate-y-1/2 h-12 rounded-md border border-amber-300/60 flex items-center justify-center text-[10px] font-bold text-white shadow-lg"
                                     style={{
                                         left: `${note.time * dynamicPPS}px`,
                                         width: `${(note.duration - 0.03) * dynamicPPS}px`,
                                         background: `linear-gradient(180deg, #D4AF37 0%, #8B7355 100%)`,
                                     }}
-                                />
+                                >
+                                    <div className="absolute inset-0 bg-white/5 pointer-events-none" />
+                                </motion.div>
                             );
                         })}
                     </div>
