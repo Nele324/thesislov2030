@@ -17,13 +17,14 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [countdown, setCountdown] = React.useState<string | null>(null);
     const [screenWidth, setScreenWidth] = React.useState(window.innerWidth);
+    const [controlsVisible, setControlsVisible] = React.useState(true);
 
     const {
         isPlayerReady, isMidiReady, isPlaying, setIsPlaying,
         noteGroups, activeKeys, buttonPresses,
         correctNoteId,
         resetPlayer, startTutorialMusic,
-        partijOffset, /*OFFSET*/
+        partijOffset,
     } = useMusicPlayer({ partij, forgiveness, ui, tutorial, videoRef, audioRef });
 
     const handleTutorialAction = () => {
@@ -50,16 +51,43 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
     };
 
     React.useEffect(() => {
+        let timeout: ReturnType<typeof setTimeout>;
+        const videoEl = videoRef.current;
+
+        const showControls = () => {
+            setControlsVisible(true);
+            clearTimeout(timeout);
+
+            timeout = setTimeout(() => {
+                setControlsVisible(false);
+            }, 2000);
+        };
+
+        window.addEventListener('mousemove', showControls);
+        window.addEventListener('touchstart', showControls);
+        videoEl?.addEventListener('play', showControls);
+        videoEl?.addEventListener('pause', showControls);
+
+        return () => {
+            window.removeEventListener('mousemove', showControls);
+            window.removeEventListener('touchstart', showControls);
+            videoEl?.removeEventListener('play', showControls);
+            videoEl?.removeEventListener('pause', showControls);
+            clearTimeout(timeout);
+        };
+    }, []);
+
+    React.useEffect(() => {
         let frameId: number;
         const media = videoRef.current || audioRef.current;
         const update = () => {
             if (media && isPlaying) {
                 const currentTime = media.currentTime;
 
-                if (currentTime < partijOffset + - 4) setCountdown(null);
-                else if (currentTime < partijOffset + - 3) setCountdown("3");
-                else if (currentTime < partijOffset + - 2) setCountdown("2");
-                else if (currentTime < partijOffset + - 1) setCountdown("1");
+                if (currentTime < partijOffset - 4) setCountdown(null);
+                else if (currentTime < partijOffset - 3) setCountdown("3");
+                else if (currentTime < partijOffset - 2) setCountdown("2");
+                else if (currentTime < partijOffset - 1) setCountdown("1");
                 else if (currentTime < partijOffset) setCountdown("Start!");
                 else setCountdown(null);
             }
@@ -140,20 +168,8 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
             )}
 
             <div className="absolute top-6 right-6 z-20 flex gap-4 items-center">
-                <button
-                    onClick={toggleFullscreen}
-                    className="text-gray-400 hover:text-white transition-colors text-2xl"
-                    title="Fullscreen"
-                >
-                    ⛶
-                </button>
-
-                <button
-                    onClick={onBack}
-                    className="text-gray-400 hover:text-white transition-colors text-2xl"
-                >
-                    ←
-                </button>
+                <button onClick={toggleFullscreen} className="text-gray-400 hover:text-white transition-colors text-2xl">⛶</button>
+                <button onClick={onBack} className="text-gray-400 hover:text-white transition-colors text-2xl">←</button>
             </div>
 
             <AnimatePresence>
@@ -172,8 +188,12 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                 )}
             </AnimatePresence>
 
-            <div className="absolute bottom-10 left-0 w-full h-40 z-20 flex items-center px-6 gap-4">
-
+            <div
+                className="absolute left-0 w-full h-40 z-20 flex items-center px-6 gap-4 transition-all duration-300"
+                style={{
+                    bottom: (!tutorial && controlsVisible) ? '2.5rem' : '0.5rem'
+                }}
+            >
                 <div className="flex-shrink-0">
                     <motion.div
                         className="relative"
@@ -196,30 +216,15 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                             ))}
                         </AnimatePresence>
 
-                        <div
-                            className="absolute inset-0 rounded-full border border-[#5C4B26]/30 z-10 shadow-[0_15px_30px_rgba(0,0,0,0.8)]"
+                        <div className="absolute inset-0 rounded-full border border-[#5C4B26]/30 z-10 shadow-[0_15px_30px_rgba(0,0,0,0.8)]"
                             style={{
-                                background: `
-                                    radial-gradient(circle at 32% 35%, 
-                                        #f3e5abbd 0%,
-                                        #D4AF37 15%,
-                                        #927233 60%,
-                                        #4A3718 85%,
-                                        #31250f 100%
-                                    )
-                                `,
-                            }}
-                        >
-                            <div
-                                className="absolute inset-0 rounded-full opacity-40 shadow-[inset_0_2px_15px_rgba(255,255,255,0.1)]"
-                                style={{
-                                    background: 'radial-gradient(circle at 40% 40%, rgba(255, 248, 220, 0.2) 0%, transparent 60%)',
-                                }}
-                            />
+                                background: `radial-gradient(circle at 32% 35%, #f3e5abbd 0%, #D4AF37 15%, #927233 60%, #4A3718 85%, #31250f 100%)`,
+                            }}>
+                            <div className="absolute inset-0 rounded-full opacity-40 shadow-[inset_0_2px_15px_rgba(255,255,255,0.1)]"
+                                style={{ background: 'radial-gradient(circle at 40% 40%, rgba(255, 248, 220, 0.2) 0%, transparent 60%)' }} />
                         </div>
 
-                        <div
-                            className="absolute rounded-full z-20 overflow-hidden border border-[#D4AF37]/60"
+                        <div className="absolute rounded-full z-20 overflow-hidden border border-[#D4AF37]/60"
                             style={{
                                 bottom: '10px',
                                 right: '10px',
@@ -227,10 +232,8 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                                 height: '35px',
                                 background: `radial-gradient(circle at 40% 40%, #FFFDF8 0%, #F5F1E1 50%, #E0DBCF 100%)`,
                                 boxShadow: '0 3px 6px rgba(0,0,0,0.7)',
-                            }}
-                        >
-                            <div
-                                className="absolute inset-0 opacity-100"
+                            }}>
+                            <div className="absolute inset-0 opacity-100"
                                 style={{
                                     backgroundImage: `
                                         radial-gradient(ellipse at 80% 80%, rgba(216,180,254, 0.4) 0%, transparent 40%),
@@ -239,20 +242,14 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                                         conic-gradient(from 0deg, transparent, rgba(166,124,0, 0.1), transparent)
                                     `,
                                     filter: 'blur(1px)',
-                                }}
-                            />
+                                }} />
                         </div>
                     </motion.div>
                 </div>
 
                 <div className="flex-1 h-20 bg-black/40 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden relative">
-                    <div
-                        className="relative h-full"
-                        style={{
-                            width: `${screenWidth - 200}px`,
-                            marginLeft: '25px'
-                        }}
-                    >
+                    <div className="relative h-full"
+                        style={{ width: `${screenWidth - 200}px`, marginLeft: '25px' }}>
                         {noteGroups.map((note) => {
                             const isCorrect = note.id === correctNoteId;
                             return (
@@ -271,8 +268,7 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                                         width: `${(note.duration - 0.03) * dynamicPPS}px`,
                                         background: `linear-gradient(180deg, #D4AF37 0%, #8B7355 100%)`,
                                     }}
-                                >
-                                </motion.div>
+                                />
                             );
                         })}
                     </div>
@@ -281,17 +277,15 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
 
             {tutorial && (
                 <div className="absolute bottom-10 right-10 z-50">
-                    <button
-                        onClick={onStartTest}
-                        className="group flex flex-col items-end px-6 py-3 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-xl transition-all"
-                    >
+                    <button onClick={onStartTest}
+                        className="group flex flex-col items-end px-6 py-3 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-xl transition-all">
                         <span className="text-lg font-bold">
                             START ECHTE TEST →
                         </span>
                     </button>
                 </div>
             )}
-        </div >
+        </div>
     );
 };
 
