@@ -199,7 +199,7 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
             <div
                 className="absolute left-0 w-full h-40 z-20 flex items-center px-6 gap-4 transition-all duration-300"
                 style={{
-                    bottom: (!tutorial && controlsVisible) ? '2.5rem' : '0.5rem'
+                    bottom: tutorial ? '6rem' : ((!tutorial && controlsVisible) ? '2.5rem' : '0.5rem')
                 }}
             >
                 <div className="flex-shrink-0">
