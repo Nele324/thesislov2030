@@ -30,6 +30,11 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
         partijOffset,
     } = useMusicPlayer({ partij, forgiveness, ui, tutorial, videoRef, audioRef });
 
+    //const totalDuration =
+    //    noteGroups.length > 0
+    //        ? noteGroups[noteGroups.length - 1].time + noteGroups[noteGroups.length - 1].duration
+    //        : 0;
+
     const handleTutorialAction = () => {
         if (isPlaying) {
             resetPlayer();
@@ -82,28 +87,18 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
     }, []);
 
     const segments = React.useMemo(() => {
-        if (noteGroups.length === 0) return [noteGroups];
-
         const SEGMENTS = 2;
-        const lastNote = noteGroups[noteGroups.length - 1];
-        const totalDuration = lastNote.time + lastNote.duration;
 
-        const segmentDuration = totalDuration / SEGMENTS;
+        if (noteGroups.length === 0) return [[], []];
 
-        const result: typeof noteGroups[] = [];
+        const sorted = [...noteGroups].sort((a, b) => a.time - b.time);
 
-        for (let i = 0; i < SEGMENTS; i++) {
-            const start = i * segmentDuration;
-            const end = (i + 1) * segmentDuration;
+        const midpoint = Math.ceil(sorted.length / SEGMENTS);
 
-            const segmentNotes = noteGroups.filter(n =>
-                n.time >= start && n.time < end
-            );
-
-            result.push(segmentNotes);
-        }
-
-        return result;
+        return [
+            sorted.slice(0, midpoint),
+            sorted.slice(midpoint)
+        ];
     }, [noteGroups]);
 
     const dynamicPPS = React.useMemo(() => {
