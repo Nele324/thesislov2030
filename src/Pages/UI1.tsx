@@ -16,8 +16,9 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [controlsVisible, setControlsVisible] = React.useState(true);
-    const VISUAL_OFFSET = -60;
-    const BASE_HIT_ZONE_PERCENT = controlsVisible ? 85 : 92;
+    const VISUAL_OFFSET = -80;
+    const effectiveControlsVisible = tutorial ? false : controlsVisible;
+    const BASE_HIT_ZONE_PERCENT = effectiveControlsVisible ? 85 : 92;
     const HIT_ZONE_WITH_OFFSET = BASE_HIT_ZONE_PERCENT + (VISUAL_OFFSET / window.innerHeight) * 100;
 
     const {
@@ -51,6 +52,7 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
     };
 
     React.useEffect(() => {
+        if (tutorial) return;
         let timeout: ReturnType<typeof setTimeout>;
         const videoEl = videoRef.current;
 
@@ -75,7 +77,7 @@ const UI1: React.FC<UI1Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
             videoEl?.removeEventListener('pause', showControls);
             clearTimeout(timeout);
         };
-    }, []);
+    }, [tutorial]);
 
     return (
         <div ref={containerRef} className="relative w-screen h-screen overflow-hidden bg-black flex text-white">

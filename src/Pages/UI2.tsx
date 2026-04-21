@@ -20,6 +20,7 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
     const [controlsVisible, setControlsVisible] = React.useState(true);
     const sliderRef = useRef<HTMLDivElement | null>(null);
     const [currentSegment, setCurrentSegment] = React.useState(0);
+    const hasSwitchedRef = React.useRef(false);
 
     const {
         isPlayerReady, isMidiReady, isPlaying, setIsPlaying,
@@ -81,16 +82,17 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
     }, []);
 
     const segments = React.useMemo(() => {
-        if (ui === 1 || noteGroups.length === 0) return [noteGroups];
+        if (noteGroups.length === 0) return [noteGroups];
 
+        const SEGMENTS = 2;
         const lastNote = noteGroups[noteGroups.length - 1];
         const totalDuration = lastNote.time + lastNote.duration;
 
-        const segmentDuration = totalDuration / ui;
+        const segmentDuration = totalDuration / SEGMENTS;
 
         const result: typeof noteGroups[] = [];
 
-        for (let i = 0; i < ui; i++) {
+        for (let i = 0; i < SEGMENTS; i++) {
             const start = i * segmentDuration;
             const end = (i + 1) * segmentDuration;
 
@@ -102,7 +104,7 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
         }
 
         return result;
-    }, [noteGroups, ui]);
+    }, [noteGroups]);
 
     const dynamicPPS = React.useMemo(() => {
         const segmentNotes = segments[currentSegment];
@@ -124,6 +126,11 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
         const media = videoRef.current || audioRef.current;
 
         const update = () => {
+            if (media && media.readyState < 2) {
+                frameId = requestAnimationFrame(update);
+                return;
+            }
+
             if (media && isPlaying) {
                 const currentTime = media.currentTime;
                 // Countdown logic
@@ -142,6 +149,7 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                 const lastNote = segmentNotes[segmentNotes.length - 1];
                 const segmentEnd = lastNote.time + lastNote.duration;
 
+
                 // 👉 Move slider relative to segment
                 if (sliderRef.current) {
                     const localTime = adjustedTime - segmentStart;
@@ -150,14 +158,15 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                 }
 
                 // 👉 When segment finishes → go to next
-                if (adjustedTime > segmentEnd) {
+                if (adjustedTime > segmentEnd && !hasSwitchedRef.current) {
+                    hasSwitchedRef.current = true;
                     if (currentSegment < segments.length - 1) {
                         setCurrentSegment(prev => prev + 1);
 
                         // reset slider visually
-                        if (sliderRef.current) {
-                            sliderRef.current.style.transform = `translateX(0px)`;
-                        }
+                        //if (sliderRef.current) {
+                        //    sliderRef.current.style.transform = `translateX(0px)`;
+                        //}
                     }
                 }
             }
@@ -165,9 +174,17 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
             frameId = requestAnimationFrame(update);
         };
 
-        if (isPlaying) frameId = requestAnimationFrame(update);
+        if (isPlaying) {
+            requestAnimationFrame(() => {
+                frameId = requestAnimationFrame(update);
+            });
+        }
         return () => cancelAnimationFrame(frameId);
     }, [isPlaying, partijOffset, dynamicPPS, segments, currentSegment]);
+
+    React.useEffect(() => {
+        hasSwitchedRef.current = false;
+    }, [currentSegment]);
 
     React.useEffect(() => {
         const handleResize = () => setScreenWidth(window.innerWidth);
@@ -190,6 +207,17 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
             setCurrentSegment(0);
         }
     }, [segments, currentSegment]);
+
+    React.useEffect(() => {
+        if (isPlaying) {
+            setCurrentSegment(0);
+            hasSwitchedRef.current = false;
+
+            if (sliderRef.current) {
+                sliderRef.current.style.transform = `translateX(0px)`;
+            }
+        }
+    }, [isPlaying]);
 
     return (
         <div ref={containerRef} className="relative w-screen h-screen overflow-hidden bg-black flex text-white">
