@@ -19,6 +19,7 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
     const [screenWidth, setScreenWidth] = React.useState(window.innerWidth);
     const [controlsVisible, setControlsVisible] = React.useState(true);
     const sliderRef = useRef<HTMLDivElement | null>(null);
+    const [currentSegment, setCurrentSegment] = React.useState(0);
 
     const {
         isPlayerReady, isMidiReady, isPlaying, setIsPlaying,
@@ -31,6 +32,7 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
     const handleTutorialAction = () => {
         if (isPlaying) {
             resetPlayer();
+            setCurrentSegment(0);
         } else {
             if (partij === 'melodie') {
                 startTutorialMusic("/How_to_train_your_dragon-piano-melodie.mp3");
@@ -78,41 +80,94 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
         };
     }, []);
 
-    const dynamicPPS = React.useMemo(() => {
-        if (noteGroups.length === 0) return 40;
+    const segments = React.useMemo(() => {
+        if (ui === 1 || noteGroups.length === 0) return [noteGroups];
 
         const lastNote = noteGroups[noteGroups.length - 1];
         const totalDuration = lastNote.time + lastNote.duration;
 
+        const segmentDuration = totalDuration / ui;
+
+        const result: typeof noteGroups[] = [];
+
+        for (let i = 0; i < ui; i++) {
+            const start = i * segmentDuration;
+            const end = (i + 1) * segmentDuration;
+
+            const segmentNotes = noteGroups.filter(n =>
+                n.time >= start && n.time < end
+            );
+
+            result.push(segmentNotes);
+        }
+
+        return result;
+    }, [noteGroups, ui]);
+
+    const dynamicPPS = React.useMemo(() => {
+        const segmentNotes = segments[currentSegment];
+        if (!segmentNotes || segmentNotes.length === 0) return 40;
+
+        const firstNote = segmentNotes[0];
+        const lastNote = segmentNotes[segmentNotes.length - 1];
+
+        const segmentDuration = (lastNote.time + lastNote.duration) - firstNote.time;
+
         const availableWidth = screenWidth - 200;
-        return availableWidth / totalDuration;
-    }, [noteGroups, screenWidth]);
+
+        return availableWidth / segmentDuration;
+    }, [segments, currentSegment, screenWidth]);
+
 
     React.useEffect(() => {
         let frameId: number;
         const media = videoRef.current || audioRef.current;
+
         const update = () => {
             if (media && isPlaying) {
                 const currentTime = media.currentTime;
-
-                if (sliderRef.current) {
-                    const adjustedTime = currentTime - partijOffset;
-                    const x = Math.max(0, adjustedTime * dynamicPPS);
-                    sliderRef.current.style.transform = `translateX(${x}px)`;
-                }
-
+                // Countdown logic
                 if (currentTime < partijOffset - 4) setCountdown(null);
                 else if (currentTime < partijOffset - 3) setCountdown("3");
                 else if (currentTime < partijOffset - 2) setCountdown("2");
                 else if (currentTime < partijOffset - 1) setCountdown("1");
                 else if (currentTime < partijOffset) setCountdown("Start!");
                 else setCountdown(null);
+                const adjustedTime = currentTime - partijOffset;
+
+                const segmentNotes = segments[currentSegment];
+                if (!segmentNotes || segmentNotes.length === 0) return;
+
+                const segmentStart = segmentNotes[0].time;
+                const lastNote = segmentNotes[segmentNotes.length - 1];
+                const segmentEnd = lastNote.time + lastNote.duration;
+
+                // 👉 Move slider relative to segment
+                if (sliderRef.current) {
+                    const localTime = adjustedTime - segmentStart;
+                    const x = Math.max(0, localTime * dynamicPPS);
+                    sliderRef.current.style.transform = `translateX(${x}px)`;
+                }
+
+                // 👉 When segment finishes → go to next
+                if (adjustedTime > segmentEnd) {
+                    if (currentSegment < segments.length - 1) {
+                        setCurrentSegment(prev => prev + 1);
+
+                        // reset slider visually
+                        if (sliderRef.current) {
+                            sliderRef.current.style.transform = `translateX(0px)`;
+                        }
+                    }
+                }
             }
+
             frameId = requestAnimationFrame(update);
         };
+
         if (isPlaying) frameId = requestAnimationFrame(update);
         return () => cancelAnimationFrame(frameId);
-    }, [isPlaying, partijOffset, dynamicPPS]);
+    }, [isPlaying, partijOffset, dynamicPPS, segments, currentSegment]);
 
     React.useEffect(() => {
         const handleResize = () => setScreenWidth(window.innerWidth);
@@ -120,6 +175,21 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    React.useEffect(() => {
+        setCurrentSegment(0);
+    }, [noteGroups]);
+
+    React.useEffect(() => {
+        if (isPlaying) {
+            setCurrentSegment(0);
+        }
+    }, [isPlaying]);
+
+    React.useEffect(() => {
+        if (currentSegment >= segments.length) {
+            setCurrentSegment(0);
+        }
+    }, [segments, currentSegment]);
 
     return (
         <div ref={containerRef} className="relative w-screen h-screen overflow-hidden bg-black flex text-white">
@@ -262,8 +332,9 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                             ref={sliderRef}
                             className="absolute top-0 bottom-0 w-[3px] bg-gradient-to-b from-amber-300 via-amber-500 to-amber-700 shadow-[0_0_20px_rgba(255,215,0,0.8)] z-50 pointer-events-none"
                         />
-                        {noteGroups.map((note) => {
+                        {segments[currentSegment]?.map((note) => {
                             const isCorrect = note.id === correctNoteId;
+                            const segmentStart = segments[currentSegment]?.[0]?.time || 0;
                             return (
                                 <motion.div
 
@@ -277,7 +348,7 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                                     transition={{ duration: 0.1 }}
                                     className="absolute top-1/4 -translate-y-1/2 h-12 rounded-md border border-amber-300/60 flex items-center justify-center text-[10px] font-bold text-white shadow-lg"
                                     style={{
-                                        left: `${note.time * dynamicPPS}px`,
+                                        left: `${(note.time - segmentStart) * dynamicPPS}px`,
                                         width: `${(note.duration - 0.03) * dynamicPPS}px`,
                                         background: `linear-gradient(180deg, #D4AF37 0%, #8B7355 100%)`,
                                     }}
