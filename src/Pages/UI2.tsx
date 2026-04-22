@@ -21,6 +21,7 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
     const sliderRef = useRef<HTMLDivElement | null>(null);
     const [currentSegment, setCurrentSegment] = React.useState(0);
     const hasSwitchedRef = React.useRef(false);
+    const [activeMeasureTime, setActiveMeasureTime] = React.useState<number | null>(null);
 
     const {
         isPlayerReady, isMidiReady, isPlaying, setIsPlaying,
@@ -136,6 +137,15 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                 else if (currentTime < partijOffset) setCountdown("Start!");
                 else setCountdown(null);
                 const adjustedTime = currentTime - partijOffset;
+
+                // Binnen de update() functie, na het berekenen van adjustedTime:
+                const currentMeasureNote = [...noteGroups]
+                    .filter(n => n.firstBeat && n.time <= adjustedTime)
+                    .pop(); // Pak de laatste "firstBeat" die we gepasseerd zijn
+
+                if (currentMeasureNote && currentMeasureNote.time !== activeMeasureTime) {
+                    setActiveMeasureTime(currentMeasureNote.time);
+                }
 
                 const segmentNotes = segments[currentSegment];
                 if (!segmentNotes || segmentNotes.length === 0) return;
@@ -357,27 +367,51 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                         />
                         {segments[currentSegment]?.map((note) => {
                             const isCorrect = note.id === correctNoteId;
+                            const isCurrentMeasure = note.firstBeat && note.time === activeMeasureTime;
                             const segmentStart = segments[currentSegment]?.[0]?.time || 0;
+                            const leftPos = (note.time - segmentStart) * dynamicPPS;
                             return (
-                                <motion.div
+                                <React.Fragment key={note.id}>
+                                    {note.firstBeat && (
+                                        <motion.div
+                                            initial={false}
+                                            animate={{
+                                                backgroundColor: isCurrentMeasure ? '#fbbf24' : 'rgba(255,255,255,0.3)',
+                                                width: isCurrentMeasure ? '3px' : '1.5px',
+                                                opacity: isCurrentMeasure ? 1 : 0.6,
+                                                y: isCurrentMeasure ? -2 : 0
+                                            }}
+                                            className="absolute z-10"
+                                            style={{
+                                                left: `${leftPos}px`,
+                                                top: '2px',
+                                                height: '10px',
+                                                boxShadow: isCurrentMeasure ? '0 0 15px rgba(251, 191, 36, 0.6)' : 'none',
+                                                originX: 0.5
+                                            }}
+                                        />
+                                    )}
 
-                                    key={note.id}
-                                    animate={{
-                                        backgroundColor: isCorrect ? '#FFD36A' : 'rgba(212, 175, 55, 1)',
-                                        borderColor: isCorrect ? '#FFFFF' : 'rgba(251, 191, 36, 0.5)',
-                                        scale: isCorrect ? 1.05 : 1,
-                                        boxShadow: isCorrect ? '0 0 20px rgba(255, 211, 106, 0.9), 0 0 8px rgba(255, 255, 255, 0.6)' : '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                                    }}
-                                    transition={{ duration: 0.1 }}
-                                    className="absolute top-1/4 -translate-y-1/2 h-12 rounded-md border border-amber-300/60 flex items-center justify-center text-[10px] font-bold text-white shadow-lg"
-                                    style={{
-                                        left: `${(note.time - segmentStart) * dynamicPPS}px`,
-                                        width: `${(note.duration - 0.03) * dynamicPPS}px`,
-                                        background: `linear-gradient(180deg, #D4AF37 0%, #8B7355 100%)`,
-                                    }}
-                                >
-                                    <div className="absolute inset-0 bg-white/5 pointer-events-none" />
-                                </motion.div>
+                                    <motion.div
+
+                                        key={note.id}
+                                        animate={{
+                                            backgroundColor: isCorrect ? '#FFD36A' : 'rgba(212, 175, 55, 1)',
+                                            borderColor: isCorrect ? '#FFFFF' : 'rgba(251, 191, 36, 0.5)',
+                                            scale: isCorrect ? 1.05 : 1,
+                                            boxShadow: isCorrect ? '0 0 20px rgba(255, 211, 106, 0.9), 0 0 8px rgba(255, 255, 255, 0.6)' : '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                                        }}
+                                        transition={{ duration: 0.1 }}
+                                        className="absolute top-1/4 -translate-y-1/2 h-12 rounded-md border border-amber-300/60 flex items-center justify-center text-[10px] font-bold text-white shadow-lg"
+                                        style={{
+                                            left: `${(note.time - segmentStart) * dynamicPPS}px`,
+                                            width: `${(note.duration - 0.03) * dynamicPPS}px`,
+                                            background: `linear-gradient(180deg, #D4AF37 0%, #8B7355 100%)`,
+                                        }}
+                                    >
+                                        <div className="absolute inset-0 bg-white/5 pointer-events-none" />
+                                    </motion.div>
+                                </React.Fragment>
                             );
                         })}
                     </div>

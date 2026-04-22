@@ -9,6 +9,7 @@ export interface NoteGroup {
     klinkendeNaam: string;
     velocity: number;
     id: string;
+    firstBeat?: boolean;
 }
 
 interface UseMusicPlayerProps {
@@ -97,14 +98,33 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
                 const firstNoteStartTime = rawNotes.length > 0 ? handmatigeTijden[0] : 0;
                 partijOffset.current = firstNoteStartTime;
 
-                setNoteGroups(rawNotes.filter(n => n.duration > 0.05).map((note, i) => ({
-                    time: handmatigeTijden[i] !== undefined ? handmatigeTijden[i] - firstNoteStartTime : 0,
-                    duration: Math.max(durations[i], 0.03),
-                    weergaveNaam: getSaxNootNaam(note.midi + transposition),
-                    klinkendeNaam: note.name,
-                    velocity: note.velocity,
-                    id: `note-${i}-${partij}`
-                })));
+                const timeSignatures = [...midi.header.timeSignatures].sort((a, b) => a.ticks - b.ticks);
+
+                setNoteGroups(rawNotes.filter(n => n.duration > 0.05).map((note, i) => {
+                    const activeSig = timeSignatures.reduce((prev, curr) => {
+                        return (curr.ticks <= note.ticks) ? curr : prev;
+                    }, timeSignatures[0]);
+
+                    const num = activeSig.timeSignature[0];
+                    const den = activeSig.timeSignature[1];
+
+                    // Bereken de maat-lengte voor deze specifieke maatsoort
+                    const ticksPerMeasure = midi.header.ppq * ((num * 4) / den);
+
+                    // Bereken of de noot op het begin van een maat valt ten opzichte van 
+                    // de start-tick van de huidige maatsoort-sectie
+                    const relativeTicks = note.ticks - activeSig.ticks;
+                    const isFirst = (relativeTicks % ticksPerMeasure) < 10;
+                    return {
+                        time: handmatigeTijden[i] !== undefined ? handmatigeTijden[i] - firstNoteStartTime : 0,
+                        duration: Math.max(durations[i], 0.03),
+                        weergaveNaam: getSaxNootNaam(note.midi + transposition),
+                        klinkendeNaam: note.name,
+                        velocity: note.velocity,
+                        id: `note-${i}-${partij}`,
+                        firstBeat: isFirst
+                    }
+                }));
                 setIsMidiReady(true);
                 console.log("Testmodus");
 
@@ -116,14 +136,34 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
                 const rawNotes = track.notes.filter(n => n.duration > 0.05);
                 const firstNoteStartTime = rawNotes.length > 0 ? rawNotes[0].time : 0;
                 partijOffset.current = firstNoteStartTime;
-                setNoteGroups(rawNotes.filter(n => n.duration > 0.05).map((note, i) => ({
-                    time: note.time - firstNoteStartTime,
-                    duration: Math.max(note.duration, 0.03),
-                    weergaveNaam: getSaxNootNaam(note.midi + transposition),
-                    klinkendeNaam: note.name,
-                    velocity: note.velocity,
-                    id: `note-${i}-${partij}`
-                })));
+
+                const timeSignatures = [...midi.header.timeSignatures].sort((a, b) => a.ticks - b.ticks);
+
+                setNoteGroups(rawNotes.filter(n => n.duration > 0.05).map((note, i) => {
+                    const activeSig = timeSignatures.reduce((prev, curr) => {
+                        return (curr.ticks <= note.ticks) ? curr : prev;
+                    }, timeSignatures[0]);
+
+                    const num = activeSig.timeSignature[0];
+                    const den = activeSig.timeSignature[1];
+
+                    // Bereken de maat-lengte voor deze specifieke maatsoort
+                    const ticksPerMeasure = midi.header.ppq * ((num * 4) / den);
+
+                    // Bereken of de noot op het begin van een maat valt ten opzichte van 
+                    // de start-tick van de huidige maatsoort-sectie
+                    const relativeTicks = note.ticks - activeSig.ticks;
+                    const isFirst = (relativeTicks % ticksPerMeasure) < 10;
+                    return {
+                        time: note.time - firstNoteStartTime,
+                        duration: Math.max(note.duration, 0.03),
+                        weergaveNaam: getSaxNootNaam(note.midi + transposition),
+                        klinkendeNaam: note.name,
+                        velocity: note.velocity,
+                        id: `note-${i}-${partij}`,
+                        firstBeat: isFirst
+                    }
+                }));
                 setIsMidiReady(true);
                 console.log("Tutorial modus");
                 console.log("partijOffset:", partijOffset.current);
@@ -179,12 +219,12 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
         if (isKeyDown.current && !hasPlayedCurrentNote.current && nowNoteIndex !== -1) {
             const note = noteGroups[nowNoteIndex];
             const canPlay = forgiveness === 'high' || Math.abs(currentTime - note.time) <= FORGIVENESS_MARGIN;
-            if (canPlay && currentNoteIndexRef.current !== nowNoteIndex) {
+            if (canPlay && !hasPlayedCurrentNote.current) {
                 activeNoteEvent.current = player.play(note.klinkendeNaam, audioContext.current!.currentTime, { gain: 6 });
                 currentNoteIndexRef.current = nowNoteIndex;
                 hasPlayedCurrentNote.current = true;
                 setCorrectNoteId(note.id);
-            } else if (!canPlay) {
+            } else if (!canPlay && currentTime < note.time) {
                 hasPlayedCurrentNote.current = true;
             }
         }
@@ -259,6 +299,7 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
             if (e.code === 'Space') {
                 isKeyDown.current = false;
                 hasPlayedCurrentNote.current = false;
+                currentNoteIndexRef.current = -1;
                 setActiveKeys(new Set());
             }
         };
@@ -266,33 +307,6 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
         window.addEventListener('keyup', handleKeyUp);
         return () => { window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp); };
     }, []);
-
-    /*
-    const exportToExcel = () => {
-        // 1. Maak de headers
-        const headers = "Nootnaam;Duur (s);Starttijd (s)";
-
-        // 2. Map de data naar rijen (gebruik ; als scheidingsteken voor Europese Excel)
-        const rows = noteGroups.map(n => {
-            const name = n.weergaveNaam;
-            const duration = n.duration.toFixed(3).replace('.', ',');
-            const startTime = (n.time + partijOffset.current).toFixed(4).replace('.', ',');
-            return `${name};${duration};${startTime}`;
-        }).join("\n");
-
-        // 3. Combineer en log naar de console
-        const csvContent = `${headers}\n${rows}`;
-        console.log("--- KOPIEER DE ONDERSTAANDE DATA NAAR EXCEL ---");
-        console.log(csvContent);
-        console.log("----------------------------------------------");
-    };
-    // Roep dit bijvoorbeeld eenmalig aan zodra de MIDI klaar is
-    useEffect(() => {
-        if (isMidiReady && noteGroups.length > 0) {
-            exportToExcel();
-        }
-    }, [isMidiReady, noteGroups]);
-    */
 
     return {
         isPlayerReady, isMidiReady, isPlaying, setIsPlaying,
