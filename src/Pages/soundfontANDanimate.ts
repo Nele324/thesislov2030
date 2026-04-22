@@ -179,12 +179,12 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
         if (isKeyDown.current && !hasPlayedCurrentNote.current && nowNoteIndex !== -1) {
             const note = noteGroups[nowNoteIndex];
             const canPlay = forgiveness === 'high' || Math.abs(currentTime - note.time) <= FORGIVENESS_MARGIN;
-            if (canPlay && currentNoteIndexRef.current !== nowNoteIndex) {
+            if (canPlay && !hasPlayedCurrentNote.current) {
                 activeNoteEvent.current = player.play(note.klinkendeNaam, audioContext.current!.currentTime, { gain: 6 });
                 currentNoteIndexRef.current = nowNoteIndex;
                 hasPlayedCurrentNote.current = true;
                 setCorrectNoteId(note.id);
-            } else if (!canPlay) {
+            } else if (!canPlay && currentTime < note.time) {
                 hasPlayedCurrentNote.current = true;
             }
         }
@@ -259,6 +259,7 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
             if (e.code === 'Space') {
                 isKeyDown.current = false;
                 hasPlayedCurrentNote.current = false;
+                currentNoteIndexRef.current = -1;
                 setActiveKeys(new Set());
             }
         };
@@ -266,33 +267,6 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
         window.addEventListener('keyup', handleKeyUp);
         return () => { window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp); };
     }, []);
-
-    /*
-    const exportToExcel = () => {
-        // 1. Maak de headers
-        const headers = "Nootnaam;Duur (s);Starttijd (s)";
-
-        // 2. Map de data naar rijen (gebruik ; als scheidingsteken voor Europese Excel)
-        const rows = noteGroups.map(n => {
-            const name = n.weergaveNaam;
-            const duration = n.duration.toFixed(3).replace('.', ',');
-            const startTime = (n.time + partijOffset.current).toFixed(4).replace('.', ',');
-            return `${name};${duration};${startTime}`;
-        }).join("\n");
-
-        // 3. Combineer en log naar de console
-        const csvContent = `${headers}\n${rows}`;
-        console.log("--- KOPIEER DE ONDERSTAANDE DATA NAAR EXCEL ---");
-        console.log(csvContent);
-        console.log("----------------------------------------------");
-    };
-    // Roep dit bijvoorbeeld eenmalig aan zodra de MIDI klaar is
-    useEffect(() => {
-        if (isMidiReady && noteGroups.length > 0) {
-            exportToExcel();
-        }
-    }, [isMidiReady, noteGroups]);
-    */
 
     return {
         isPlayerReady, isMidiReady, isPlaying, setIsPlaying,
