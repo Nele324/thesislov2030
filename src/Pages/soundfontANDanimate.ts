@@ -9,6 +9,7 @@ export interface NoteGroup {
     klinkendeNaam: string;
     velocity: number;
     id: string;
+    firstBeat?: boolean;
 }
 
 interface UseMusicPlayerProps {
@@ -97,14 +98,33 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
                 const firstNoteStartTime = rawNotes.length > 0 ? handmatigeTijden[0] : 0;
                 partijOffset.current = firstNoteStartTime;
 
-                setNoteGroups(rawNotes.filter(n => n.duration > 0.05).map((note, i) => ({
-                    time: handmatigeTijden[i] !== undefined ? handmatigeTijden[i] - firstNoteStartTime : 0,
-                    duration: Math.max(durations[i], 0.03),
-                    weergaveNaam: getSaxNootNaam(note.midi + transposition),
-                    klinkendeNaam: note.name,
-                    velocity: note.velocity,
-                    id: `note-${i}-${partij}`
-                })));
+                const timeSignatures = [...midi.header.timeSignatures].sort((a, b) => a.ticks - b.ticks);
+
+                setNoteGroups(rawNotes.filter(n => n.duration > 0.05).map((note, i) => {
+                    const activeSig = timeSignatures.reduce((prev, curr) => {
+                        return (curr.ticks <= note.ticks) ? curr : prev;
+                    }, timeSignatures[0]);
+
+                    const num = activeSig.timeSignature[0];
+                    const den = activeSig.timeSignature[1];
+
+                    // Bereken de maat-lengte voor deze specifieke maatsoort
+                    const ticksPerMeasure = midi.header.ppq * ((num * 4) / den);
+
+                    // Bereken of de noot op het begin van een maat valt ten opzichte van 
+                    // de start-tick van de huidige maatsoort-sectie
+                    const relativeTicks = note.ticks - activeSig.ticks;
+                    const isFirst = (relativeTicks % ticksPerMeasure) < 10;
+                    return {
+                        time: handmatigeTijden[i] !== undefined ? handmatigeTijden[i] - firstNoteStartTime : 0,
+                        duration: Math.max(durations[i], 0.03),
+                        weergaveNaam: getSaxNootNaam(note.midi + transposition),
+                        klinkendeNaam: note.name,
+                        velocity: note.velocity,
+                        id: `note-${i}-${partij}`,
+                        firstBeat: isFirst
+                    }
+                }));
                 setIsMidiReady(true);
                 console.log("Testmodus");
 
@@ -116,14 +136,34 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
                 const rawNotes = track.notes.filter(n => n.duration > 0.05);
                 const firstNoteStartTime = rawNotes.length > 0 ? rawNotes[0].time : 0;
                 partijOffset.current = firstNoteStartTime;
-                setNoteGroups(rawNotes.filter(n => n.duration > 0.05).map((note, i) => ({
-                    time: note.time - firstNoteStartTime,
-                    duration: Math.max(note.duration, 0.03),
-                    weergaveNaam: getSaxNootNaam(note.midi + transposition),
-                    klinkendeNaam: note.name,
-                    velocity: note.velocity,
-                    id: `note-${i}-${partij}`
-                })));
+
+                const timeSignatures = [...midi.header.timeSignatures].sort((a, b) => a.ticks - b.ticks);
+
+                setNoteGroups(rawNotes.filter(n => n.duration > 0.05).map((note, i) => {
+                    const activeSig = timeSignatures.reduce((prev, curr) => {
+                        return (curr.ticks <= note.ticks) ? curr : prev;
+                    }, timeSignatures[0]);
+
+                    const num = activeSig.timeSignature[0];
+                    const den = activeSig.timeSignature[1];
+
+                    // Bereken de maat-lengte voor deze specifieke maatsoort
+                    const ticksPerMeasure = midi.header.ppq * ((num * 4) / den);
+
+                    // Bereken of de noot op het begin van een maat valt ten opzichte van 
+                    // de start-tick van de huidige maatsoort-sectie
+                    const relativeTicks = note.ticks - activeSig.ticks;
+                    const isFirst = (relativeTicks % ticksPerMeasure) < 10;
+                    return {
+                        time: note.time - firstNoteStartTime,
+                        duration: Math.max(note.duration, 0.03),
+                        weergaveNaam: getSaxNootNaam(note.midi + transposition),
+                        klinkendeNaam: note.name,
+                        velocity: note.velocity,
+                        id: `note-${i}-${partij}`,
+                        firstBeat: isFirst
+                    }
+                }));
                 setIsMidiReady(true);
                 console.log("Tutorial modus");
                 console.log("partijOffset:", partijOffset.current);
