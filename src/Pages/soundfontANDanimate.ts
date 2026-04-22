@@ -18,9 +18,10 @@ interface UseMusicPlayerProps {
     tutorial?: boolean;
     videoRef: React.RefObject<HTMLVideoElement | null>;
     audioRef: React.RefObject<HTMLAudioElement | null>;
+    hitZonePercent?: number;
 }
 
-export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, audioRef }: UseMusicPlayerProps) => {
+export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, audioRef, hitZonePercent }: UseMusicPlayerProps) => {
     const [player, setPlayer] = useState<Player | null>(null);
     const [noteGroups, setNoteGroups] = useState<NoteGroup[]>([]);
     const [isPlayerReady, setIsPlayerReady] = useState(false);
@@ -41,7 +42,7 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
     const partijOffset = useRef(0);
 
     const PIXELS_PER_SECOND = ui === 1 ? 350 : 40;
-    const HIT_ZONE_Y_PERCENT = 85;
+    const HIT_ZONE_Y_PERCENT = hitZonePercent ?? 85;
     //const OFFSET = 4.8;
     const FORGIVENESS_MARGIN = 0.15;
     const PRE_HIT_MARGIN = 0.2;
@@ -179,7 +180,7 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
             const note = noteGroups[nowNoteIndex];
             const canPlay = forgiveness === 'high' || Math.abs(currentTime - note.time) <= FORGIVENESS_MARGIN;
             if (canPlay && currentNoteIndexRef.current !== nowNoteIndex) {
-                activeNoteEvent.current = player.play(note.klinkendeNaam, audioContext.current!.currentTime, { gain: 0.5 });
+                activeNoteEvent.current = player.play(note.klinkendeNaam, audioContext.current!.currentTime, { gain: 6 });
                 currentNoteIndexRef.current = nowNoteIndex;
                 hasPlayedCurrentNote.current = true;
                 setCorrectNoteId(note.id);

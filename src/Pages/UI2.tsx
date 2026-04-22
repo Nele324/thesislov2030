@@ -12,22 +12,33 @@ interface UI2Props {
 }
 
 const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, onStartTest }) => {
+    const containerRef = useRef<HTMLDivElement | null>(null);
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [countdown, setCountdown] = React.useState<string | null>(null);
     const [screenWidth, setScreenWidth] = React.useState(window.innerWidth);
+    const [controlsVisible, setControlsVisible] = React.useState(true);
+    const sliderRef = useRef<HTMLDivElement | null>(null);
+    const [currentSegment, setCurrentSegment] = React.useState(0);
+    const hasSwitchedRef = React.useRef(false);
 
     const {
         isPlayerReady, isMidiReady, isPlaying, setIsPlaying,
         noteGroups, activeKeys, buttonPresses,
         correctNoteId,
         resetPlayer, startTutorialMusic,
-        partijOffset, /*OFFSET*/
+        partijOffset,
     } = useMusicPlayer({ partij, forgiveness, ui, tutorial, videoRef, audioRef });
+
+    //const totalDuration =
+    //    noteGroups.length > 0
+    //        ? noteGroups[noteGroups.length - 1].time + noteGroups[noteGroups.length - 1].duration
+    //        : 0;
 
     const handleTutorialAction = () => {
         if (isPlaying) {
             resetPlayer();
+            setCurrentSegment(0);
         } else {
             if (partij === 'melodie') {
                 startTutorialMusic("/How_to_train_your_dragon-piano-melodie.mp3");
@@ -37,25 +48,138 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
         }
     };
 
+    const toggleFullscreen = async () => {
+        const el = containerRef.current;
+        if (!el) return;
+
+        if (!document.fullscreenElement) {
+            await el.requestFullscreen();
+        } else {
+            await document.exitFullscreen();
+        }
+    };
+
+    React.useEffect(() => {
+        let timeout: ReturnType<typeof setTimeout>;
+        const videoEl = videoRef.current;
+
+        const showControls = () => {
+            setControlsVisible(true);
+            clearTimeout(timeout);
+
+            timeout = setTimeout(() => {
+                setControlsVisible(false);
+            }, 2000);
+        };
+
+        window.addEventListener('mousemove', showControls);
+        window.addEventListener('touchstart', showControls);
+        videoEl?.addEventListener('play', showControls);
+        videoEl?.addEventListener('pause', showControls);
+
+        return () => {
+            window.removeEventListener('mousemove', showControls);
+            window.removeEventListener('touchstart', showControls);
+            videoEl?.removeEventListener('play', showControls);
+            videoEl?.removeEventListener('pause', showControls);
+            clearTimeout(timeout);
+        };
+    }, []);
+
+    const segments = React.useMemo(() => {
+        const SEGMENTS = 2;
+
+        if (noteGroups.length === 0) return [[], []];
+
+        const sorted = [...noteGroups].sort((a, b) => a.time - b.time);
+
+        const midpoint = Math.ceil(sorted.length / SEGMENTS);
+
+        return [
+            sorted.slice(0, midpoint),
+            sorted.slice(midpoint)
+        ];
+    }, [noteGroups]);
+
+    const dynamicPPS = React.useMemo(() => {
+        const segmentNotes = segments[currentSegment];
+        if (!segmentNotes || segmentNotes.length === 0) return 40;
+
+        const firstNote = segmentNotes[0];
+        const lastNote = segmentNotes[segmentNotes.length - 1];
+
+        const segmentDuration = (lastNote.time + lastNote.duration) - firstNote.time;
+
+        const availableWidth = screenWidth - 200;
+
+        return availableWidth / segmentDuration;
+    }, [segments, currentSegment, screenWidth]);
+
+
     React.useEffect(() => {
         let frameId: number;
         const media = videoRef.current || audioRef.current;
+
         const update = () => {
+            if (media && media.readyState < 2) {
+                frameId = requestAnimationFrame(update);
+                return;
+            }
+
             if (media && isPlaying) {
                 const currentTime = media.currentTime;
-
-                if (currentTime < partijOffset + /*OFFSET*/ - 4) setCountdown(null);
-                else if (currentTime < partijOffset + /*OFFSET*/ - 3) setCountdown("3");
-                else if (currentTime < partijOffset + /*OFFSET*/ - 2) setCountdown("2");
-                else if (currentTime < partijOffset + /*OFFSET*/ - 1) setCountdown("1");
-                else if (currentTime < partijOffset /*+ OFFSET*/) setCountdown("Start!");
+                // Countdown logic
+                if (currentTime < partijOffset - 4) setCountdown(null);
+                else if (currentTime < partijOffset - 3) setCountdown("3");
+                else if (currentTime < partijOffset - 2) setCountdown("2");
+                else if (currentTime < partijOffset - 1) setCountdown("1");
+                else if (currentTime < partijOffset) setCountdown("Start!");
                 else setCountdown(null);
+                const adjustedTime = currentTime - partijOffset;
+
+                const segmentNotes = segments[currentSegment];
+                if (!segmentNotes || segmentNotes.length === 0) return;
+
+                const segmentStart = segmentNotes[0].time;
+                const lastNote = segmentNotes[segmentNotes.length - 1];
+                const segmentEnd = lastNote.time + lastNote.duration;
+
+
+                // 👉 Move slider relative to segment
+                if (sliderRef.current) {
+                    const localTime = adjustedTime - segmentStart;
+                    const x = Math.max(0, localTime * dynamicPPS);
+                    sliderRef.current.style.transform = `translateX(${x}px)`;
+                }
+
+                // 👉 When segment finishes → go to next
+                if (adjustedTime > segmentEnd && !hasSwitchedRef.current) {
+                    hasSwitchedRef.current = true;
+                    if (currentSegment < segments.length - 1) {
+                        setCurrentSegment(prev => prev + 1);
+
+                        // reset slider visually
+                        //if (sliderRef.current) {
+                        //    sliderRef.current.style.transform = `translateX(0px)`;
+                        //}
+                    }
+                }
             }
+
             frameId = requestAnimationFrame(update);
         };
-        if (isPlaying) frameId = requestAnimationFrame(update);
+
+        if (isPlaying) {
+            requestAnimationFrame(() => {
+                frameId = requestAnimationFrame(update);
+            });
+        }
         return () => cancelAnimationFrame(frameId);
-    }, [isPlaying, partijOffset, /*OFFSET*/]);
+    }, [isPlaying, partijOffset, dynamicPPS, segments, currentSegment]);
+
+    React.useEffect(() => {
+        hasSwitchedRef.current = false;
+    }, [currentSegment]);
 
     React.useEffect(() => {
         const handleResize = () => setScreenWidth(window.innerWidth);
@@ -63,19 +187,35 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    const dynamicPPS = React.useMemo(() => {
-        if (noteGroups.length === 0) return 40;
+    React.useEffect(() => {
+        setCurrentSegment(0);
+    }, [noteGroups]);
 
-        const lastNote = noteGroups[noteGroups.length - 1];
-        const totalDuration = lastNote.time + lastNote.duration;
+    React.useEffect(() => {
+        if (isPlaying) {
+            setCurrentSegment(0);
+        }
+    }, [isPlaying]);
 
-        // We laten een marge van 100px (25px links, 25px rechts)
-        const availableWidth = screenWidth - 200;
-        return availableWidth / totalDuration;
-    }, [noteGroups, screenWidth]);
+    React.useEffect(() => {
+        if (currentSegment >= segments.length) {
+            setCurrentSegment(0);
+        }
+    }, [segments, currentSegment]);
+
+    React.useEffect(() => {
+        if (isPlaying) {
+            setCurrentSegment(0);
+            hasSwitchedRef.current = false;
+
+            if (sliderRef.current) {
+                sliderRef.current.style.transform = `translateX(0px)`;
+            }
+        }
+    }, [isPlaying]);
 
     return (
-        <div className="relative w-screen h-screen overflow-hidden bg-black flex text-white">
+        <div ref={containerRef} className="relative w-screen h-screen overflow-hidden bg-black flex text-white">
             {!tutorial ? (
                 <div className="absolute inset-0 z-0">
                     <video
@@ -120,7 +260,6 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                             exit={{ opacity: 0, y: -20 }}
                             className="absolute top-10 left-0 right-0 mx-auto w-max px-8 py-4 bg-black/60 backdrop-blur-xl rounded-2xl border border-white/20 z-30 shadow-2xl text-center"
                         >
-
                             <span className={isPlayerReady && isMidiReady ? "text-green-400" : "text-red-400"}>
                                 {isPlayerReady && isMidiReady ? "Video starten om te beginnen" : "Laden..."}
                             </span>
@@ -129,11 +268,11 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                 </AnimatePresence>
             )}
 
-            <div className="absolute top-6 right-6 z-20">
+            <div className="absolute top-6 right-6 z-20 flex gap-4 items-center">
+                <button onClick={toggleFullscreen} className="text-gray-400 hover:text-white transition-colors text-2xl">⛶</button>
                 <button onClick={onBack} className="text-gray-400 hover:text-white transition-colors text-2xl">←</button>
             </div>
 
-            {/* Countdown Overlay */}
             <AnimatePresence>
                 {countdown && (
                     <motion.div
@@ -150,20 +289,22 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                 )}
             </AnimatePresence>
 
-            <div className="absolute bottom-10 left-0 w-full h-40 z-20 flex items-center px-6 gap-4">
-
-                {/* DE BUTTON (Vast op de hit-line) */}
+            <div
+                className="absolute left-0 w-full h-40 z-20 flex items-center px-6 gap-4 transition-all duration-300"
+                style={{
+                    bottom: tutorial ? '6rem' : ((!tutorial && controlsVisible) ? '2.5rem' : '0.5rem')
+                }}
+            >
                 <div className="flex-shrink-0">
                     <motion.div
                         className="relative"
                         style={{ width: '80px', height: '80px' }}
                         animate={{
-                            y: activeKeys.has(0) ? 8 : 0, // Hele knop gaat omlaag
-                            scale: activeKeys.has(0) ? 0.92 : 1 // Hele knop krimpt iets
+                            y: activeKeys.has(0) ? 8 : 0,
+                            scale: activeKeys.has(0) ? 0.92 : 1
                         }}
-                        transition={{ duration: 0.1 }} // Snelle reactie
+                        transition={{ duration: 0.1 }}
                     >
-                        {/* Ripple effect (blijft hetzelfde) */}
                         <AnimatePresence>
                             {buttonPresses.map(p => (
                                 <motion.div
@@ -176,47 +317,24 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                             ))}
                         </AnimatePresence>
 
-                        {/* 2. De Gouden Cup Base (Verfijnd Antiek Goud) */}
-                        <div
-                            className="absolute inset-0 rounded-full border border-[#5C4B26]/30 z-10 shadow-[0_15px_30px_rgba(0,0,0,0.8)]"
+                        <div className="absolute inset-0 rounded-full border border-[#5C4B26]/30 z-10 shadow-[0_15px_30px_rgba(0,0,0,0.8)]"
                             style={{
-                                background: `
-                                    radial-gradient(circle at 32% 35%, 
-                                        #f3e5abbd 0%,    /* Zachte gele highlight (Meringue) */
-                                        #D4AF37 15%,   /* Warm verzadigd goud */
-                                        #927233 60%,   /* Overgang naar brons */
-                                        #4A3718 85%,   /* Diepe schaduw */
-                                        #31250f 100%   /* Donkere rand */
-                                    )
-                                `,
-                            }}
-                        >
-                            {/* Interne zachte glanslaag voor die zijdezachte metaal-look */}
-                            <div
-                                className="absolute inset-0 rounded-full opacity-40 shadow-[inset_0_2px_15px_rgba(255,255,255,0.1)]"
-                                style={{
-                                    background: 'radial-gradient(circle at 40% 40%, rgba(255, 248, 220, 0.2) 0%, transparent 60%)',
-                                }}
-                            />
+                                background: `radial-gradient(circle at 32% 35%, #f3e5abbd 0%, #D4AF37 15%, #927233 60%, #4A3718 85%, #31250f 100%)`,
+                            }}>
+                            <div className="absolute inset-0 rounded-full opacity-40 shadow-[inset_0_2px_15px_rgba(255,255,255,0.1)]"
+                                style={{ background: 'radial-gradient(circle at 40% 40%, rgba(255, 248, 220, 0.2) 0%, transparent 60%)' }} />
                         </div>
 
-                        {/* 2. De Kleine Witte Parelmoer Inleg (Gecentreerd) */}
-                        <div
-                            className="absolute rounded-full z-20 overflow-hidden border border-[#D4AF37]/60"
+                        <div className="absolute rounded-full z-20 overflow-hidden border border-[#D4AF37]/60"
                             style={{
                                 bottom: '10px',
                                 right: '10px',
-
                                 width: '35px',
                                 height: '35px',
-
                                 background: `radial-gradient(circle at 40% 40%, #FFFDF8 0%, #F5F1E1 50%, #E0DBCF 100%)`,
                                 boxShadow: '0 3px 6px rgba(0,0,0,0.7)',
-                            }}
-                        >
-                            {/* De Realistische Parelmoer Swirl Textuur */}
-                            <div
-                                className="absolute inset-0 opacity-100"
+                            }}>
+                            <div className="absolute inset-0 opacity-100"
                                 style={{
                                     backgroundImage: `
                                         radial-gradient(ellipse at 80% 80%, rgba(216,180,254, 0.4) 0%, transparent 40%),
@@ -224,63 +342,59 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                                         conic-gradient(from 180deg, transparent, rgba(166,124,0, 0.1), transparent),
                                         conic-gradient(from 0deg, transparent, rgba(166,124,0, 0.1), transparent)
                                     `,
-                                    filter: 'blur(1px)', // Swirl textuur zachter maken
-                                }}
-                            />
+                                    filter: 'blur(1px)',
+                                }} />
                         </div>
-
                     </motion.div>
                 </div>
 
-                {/* De Statische Partituur Container */}
-                <div className="flex-1 h-20 bg-black/40 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden relative">
-                    <div
-                        className="relative h-full"
-                        style={{
-                            width: `${screenWidth - 200}px`,
-                            marginLeft: '25px'
-                        }}
-                    >
-                        {noteGroups.map((note) => {
+                <div className="flex-1 h-20 bg-black/60 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden relative opacity-80">
+                    <div className="relative h-full"
+                        style={{ width: `${screenWidth - 200}px`, marginLeft: '25px' }}>
+                        <div
+                            ref={sliderRef}
+                            className="absolute top-0 bottom-0 w-[3px] bg-gradient-to-b from-amber-300 via-amber-500 to-amber-700 shadow-[0_0_20px_rgba(255,215,0,0.8)] z-50 pointer-events-none"
+                        />
+                        {segments[currentSegment]?.map((note) => {
                             const isCorrect = note.id === correctNoteId;
+                            const segmentStart = segments[currentSegment]?.[0]?.time || 0;
                             return (
                                 <motion.div
+
                                     key={note.id}
                                     animate={{
-                                        backgroundColor: isCorrect ? '#4ADE80' : 'rgba(212, 175, 55, 0)',
-                                        borderColor: isCorrect ? '#22C55E' : 'rgba(251, 191, 36, 0.5)',
-                                        scale: isCorrect ? 1.05 : 1, // Maak 'm net iets groter
-                                        boxShadow: isCorrect ? '0 0 20px rgba(74, 222, 128, 0.7)' : '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                                        backgroundColor: isCorrect ? '#FFD36A' : 'rgba(212, 175, 55, 1)',
+                                        borderColor: isCorrect ? '#FFFFF' : 'rgba(251, 191, 36, 0.5)',
+                                        scale: isCorrect ? 1.05 : 1,
+                                        boxShadow: isCorrect ? '0 0 20px rgba(255, 211, 106, 0.9), 0 0 8px rgba(255, 255, 255, 0.6)' : '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                                     }}
-                                    transition={{ duration: 0.1 }} // Snelle reactie
-                                    className="absolute top-1/4 -translate-y-1/2 h-12 rounded-md border border-amber-400/50 flex items-center justify-center text-[10px] font-bold text-white shadow-lg"
+                                    transition={{ duration: 0.1 }}
+                                    className="absolute top-1/4 -translate-y-1/2 h-12 rounded-md border border-amber-300/60 flex items-center justify-center text-[10px] font-bold text-white shadow-lg"
                                     style={{
-                                        left: `${note.time * dynamicPPS}px`,
+                                        left: `${(note.time - segmentStart) * dynamicPPS}px`,
                                         width: `${(note.duration - 0.03) * dynamicPPS}px`,
                                         background: `linear-gradient(180deg, #D4AF37 0%, #8B7355 100%)`,
                                     }}
                                 >
+                                    <div className="absolute inset-0 bg-white/5 pointer-events-none" />
                                 </motion.div>
                             );
-
                         })}
                     </div>
                 </div>
             </div>
-            {/* KNOP NAAR EFFECTIEVE TEST (Alleen zichtbaar in tutorial mode) */}
+
             {tutorial && (
                 <div className="absolute bottom-10 right-10 z-50">
-                    <button
-                        onClick={onStartTest}
-                        className="group flex flex-col items-end px-6 py-3 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-xl transition-all"
-                    >
+                    <button onClick={onStartTest}
+                        className="group flex flex-col items-end px-6 py-3 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-xl transition-all">
                         <span className="text-lg font-bold">
                             START ECHTE TEST →
                         </span>
                     </button>
                 </div>
             )}
-        </div >
+        </div>
     );
 };
 
