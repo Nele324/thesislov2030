@@ -107,16 +107,16 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
                         return (curr.ticks <= note.ticks) ? curr : prev;
                     }, timeSignatures[0]);
 
-                    const num = activeSig.timeSignature[0];
-                    const den = activeSig.timeSignature[1];
+                    const num: number = activeSig.timeSignature[0];
+                    const den: number = activeSig.timeSignature[1];
 
                     // Bereken de maat-lengte voor deze specifieke maatsoort
-                    const ticksPerMeasure = midi.header.ppq * ((num * 4) / den);
+                    const ticksPerMeasure: number = midi.header.ppq * ((num * 4) / den);
 
                     // Bereken of de noot op het begin van een maat valt ten opzichte van 
                     // de start-tick van de huidige maatsoort-sectie
-                    const relativeTicks = note.ticks - activeSig.ticks;
-                    const isFirst = (relativeTicks % ticksPerMeasure) < 10;
+                    const relativeTicks: number = note.ticks - activeSig.ticks;
+                    const isFirst: boolean = (relativeTicks % ticksPerMeasure) < 10;
                     return {
                         time: handmatigeTijden[i] !== undefined ? handmatigeTijden[i] - firstNoteStartTime : 0,
                         duration: Math.max(durations[i], 0.03),
@@ -146,16 +146,16 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
                         return (curr.ticks <= note.ticks) ? curr : prev;
                     }, timeSignatures[0]);
 
-                    const num = activeSig.timeSignature[0];
-                    const den = activeSig.timeSignature[1];
+                    const num: number = activeSig.timeSignature[0];
+                    const den: number = activeSig.timeSignature[1];
 
                     // Bereken de maat-lengte voor deze specifieke maatsoort
-                    const ticksPerMeasure = midi.header.ppq * ((num * 4) / den);
+                    const ticksPerMeasure: number = midi.header.ppq * ((num * 4) / den);
 
                     // Bereken of de noot op het begin van een maat valt ten opzichte van 
                     // de start-tick van de huidige maatsoort-sectie
-                    const relativeTicks = note.ticks - activeSig.ticks;
-                    const isFirst = (relativeTicks % ticksPerMeasure) < 10;
+                    const relativeTicks: number = note.ticks - activeSig.ticks;
+                    const isFirst: boolean = (relativeTicks % ticksPerMeasure) < 10;
                     return {
                         time: note.time - firstNoteStartTime,
                         duration: Math.max(note.duration, 0.03),
@@ -244,7 +244,7 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
             }
         }
         requestRef.current = requestAnimationFrame(animate);
-    }, [videoRef, audioRef, isPlaying, noteGroups, player, forgiveness, ui, PIXELS_PER_SECOND, HIT_ZONE_Y_PERCENT, /*OFFSET,*/ partijOffset]);
+    }, [videoRef, audioRef, isPlaying, noteGroups, player, forgiveness, ui, PIXELS_PER_SECOND, HIT_ZONE_Y_PERCENT, /*OFFSET,*/ partijOffset, gain]);
 
     const startTutorialMusic = (url: string) => {
         if (!audioRef.current) {

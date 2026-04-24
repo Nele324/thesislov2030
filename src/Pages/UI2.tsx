@@ -199,7 +199,7 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
             });
         }
         return () => cancelAnimationFrame(frameId);
-    }, [isPlaying, partijOffset, dynamicPPS, segments, currentSegment]);
+    }, [isPlaying, partijOffset, dynamicPPS, segments, currentSegment, activeMeasureTime, noteGroups]);
 
     React.useEffect(() => {
         hasSwitchedRef.current = false;
@@ -244,7 +244,7 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                 <div className="absolute inset-0 z-0">
                     <video
                         ref={videoRef}
-                        src="/HowToTrainYourDragon.mp4"
+                        src="/HowToTrainYourDragonLowSize.mp4"
                         crossOrigin='anonymous'
                         className="w-full h-full object-cover opacity-80"
                         onPlay={() => setIsPlaying(true)}
