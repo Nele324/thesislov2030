@@ -220,6 +220,10 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
             const note = noteGroups[nowNoteIndex];
             const canPlay = forgiveness === 'high' || Math.abs(currentTime - note.time) <= FORGIVENESS_MARGIN;
             if (canPlay && !hasPlayedCurrentNote.current) {
+                if (activeNoteEvent.current) {
+                    activeNoteEvent.current.stop();
+                    activeNoteEvent.current = null;
+                }
                 activeNoteEvent.current = player.play(note.klinkendeNaam, audioContext.current!.currentTime, { gain: 1 });
                 currentNoteIndexRef.current = nowNoteIndex;
                 hasPlayedCurrentNote.current = true;
