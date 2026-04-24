@@ -22,6 +22,7 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
     const [currentSegment, setCurrentSegment] = React.useState(0);
     const hasSwitchedRef = React.useRef(false);
     const [activeMeasureTime, setActiveMeasureTime] = React.useState<number | null>(null);
+    const LOOK_AHEAD = 0.5;
 
     const {
         isPlayerReady, isMidiReady, isPlaying, setIsPlaying,
@@ -139,12 +140,12 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                 const adjustedTime = currentTime - partijOffset;
 
                 // Binnen de update() functie, na het berekenen van adjustedTime:
-                const currentMeasureNote = [...noteGroups]
-                    .filter(n => n.firstBeat && n.time <= adjustedTime)
+                const UpcomingMeasureNote = [...noteGroups]
+                    .filter(n => n.firstBeat && n.time <= (adjustedTime + LOOK_AHEAD))
                     .pop(); // Pak de laatste "firstBeat" die we gepasseerd zijn
 
-                if (currentMeasureNote && currentMeasureNote.time !== activeMeasureTime) {
-                    setActiveMeasureTime(currentMeasureNote.time);
+                if (UpcomingMeasureNote && UpcomingMeasureNote.time !== activeMeasureTime) {
+                    setActiveMeasureTime(UpcomingMeasureNote.time);
                 }
 
                 const segmentNotes = segments[currentSegment];
@@ -376,9 +377,9 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                                         <motion.div
                                             initial={false}
                                             animate={{
-                                                backgroundColor: isCurrentMeasure ? '#fbbf24' : 'rgba(255,255,255,0.3)',
+                                                backgroundColor: isCurrentMeasure ? '#fbbf24' : 'rgba(200,200,200,0.8)',
                                                 width: isCurrentMeasure ? '3px' : '1.5px',
-                                                opacity: isCurrentMeasure ? 1 : 0.6,
+                                                opacity: isCurrentMeasure ? 1 : 0.9,
                                                 y: isCurrentMeasure ? -2 : 0
                                             }}
                                             className="absolute z-10"
@@ -393,7 +394,6 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                                     )}
 
                                     <motion.div
-
                                         key={note.id}
                                         animate={{
                                             backgroundColor: isCorrect ? '#FFD36A' : 'rgba(212, 175, 55, 1)',
