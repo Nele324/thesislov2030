@@ -49,6 +49,8 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
     const PRE_HIT_MARGIN = 0.2;
     const START_TIJD_TUTORIAL = 25.8;
 
+    const gain = partij === 'melodie' ? 1 : 0.5;
+
     const getSaxNootNaam = (midiNumber: number): string => {
         const namen = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "Sib", "Si"];
         return namen[midiNumber % 12];
@@ -224,7 +226,7 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
                     activeNoteEvent.current.stop();
                     activeNoteEvent.current = null;
                 }
-                activeNoteEvent.current = player.play(note.klinkendeNaam, audioContext.current!.currentTime, { gain: 1 });
+                activeNoteEvent.current = player.play(note.klinkendeNaam, audioContext.current!.currentTime, { gain: gain });
                 currentNoteIndexRef.current = nowNoteIndex;
                 hasPlayedCurrentNote.current = true;
                 setCorrectNoteId(note.id);
