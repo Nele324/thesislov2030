@@ -49,6 +49,8 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
     const PRE_HIT_MARGIN = 0.2;
     const START_TIJD_TUTORIAL = 25.8;
 
+    const gain = partij === 'melodie' ? 1 : 0.5;
+
     const getSaxNootNaam = (midiNumber: number): string => {
         const namen = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "Sib", "Si"];
         return namen[midiNumber % 12];
@@ -105,16 +107,16 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
                         return (curr.ticks <= note.ticks) ? curr : prev;
                     }, timeSignatures[0]);
 
-                    const num = activeSig.timeSignature[0];
-                    const den = activeSig.timeSignature[1];
+                    const num: number = activeSig.timeSignature[0];
+                    const den: number = activeSig.timeSignature[1];
 
                     // Bereken de maat-lengte voor deze specifieke maatsoort
-                    const ticksPerMeasure = midi.header.ppq * ((num * 4) / den);
+                    const ticksPerMeasure: number = midi.header.ppq * ((num * 4) / den);
 
                     // Bereken of de noot op het begin van een maat valt ten opzichte van 
                     // de start-tick van de huidige maatsoort-sectie
-                    const relativeTicks = note.ticks - activeSig.ticks;
-                    const isFirst = (relativeTicks % ticksPerMeasure) < 10;
+                    const relativeTicks: number = note.ticks - activeSig.ticks;
+                    const isFirst: boolean = (relativeTicks % ticksPerMeasure) < 10;
                     return {
                         time: handmatigeTijden[i] !== undefined ? handmatigeTijden[i] - firstNoteStartTime : 0,
                         duration: Math.max(durations[i], 0.03),
@@ -144,16 +146,16 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
                         return (curr.ticks <= note.ticks) ? curr : prev;
                     }, timeSignatures[0]);
 
-                    const num = activeSig.timeSignature[0];
-                    const den = activeSig.timeSignature[1];
+                    const num: number = activeSig.timeSignature[0];
+                    const den: number = activeSig.timeSignature[1];
 
                     // Bereken de maat-lengte voor deze specifieke maatsoort
-                    const ticksPerMeasure = midi.header.ppq * ((num * 4) / den);
+                    const ticksPerMeasure: number = midi.header.ppq * ((num * 4) / den);
 
                     // Bereken of de noot op het begin van een maat valt ten opzichte van 
                     // de start-tick van de huidige maatsoort-sectie
-                    const relativeTicks = note.ticks - activeSig.ticks;
-                    const isFirst = (relativeTicks % ticksPerMeasure) < 10;
+                    const relativeTicks: number = note.ticks - activeSig.ticks;
+                    const isFirst: boolean = (relativeTicks % ticksPerMeasure) < 10;
                     return {
                         time: note.time - firstNoteStartTime,
                         duration: Math.max(note.duration, 0.03),
@@ -220,7 +222,11 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
             const note = noteGroups[nowNoteIndex];
             const canPlay = forgiveness === 'high' || Math.abs(currentTime - note.time) <= FORGIVENESS_MARGIN;
             if (canPlay && !hasPlayedCurrentNote.current) {
-                activeNoteEvent.current = player.play(note.klinkendeNaam, audioContext.current!.currentTime, { gain: 6 });
+                if (activeNoteEvent.current) {
+                    activeNoteEvent.current.stop();
+                    activeNoteEvent.current = null;
+                }
+                activeNoteEvent.current = player.play(note.klinkendeNaam, audioContext.current!.currentTime, { gain: gain });
                 currentNoteIndexRef.current = nowNoteIndex;
                 hasPlayedCurrentNote.current = true;
                 setCorrectNoteId(note.id);
@@ -238,7 +244,7 @@ export const useMusicPlayer = ({ partij, forgiveness, ui, tutorial, videoRef, au
             }
         }
         requestRef.current = requestAnimationFrame(animate);
-    }, [videoRef, audioRef, isPlaying, noteGroups, player, forgiveness, ui, PIXELS_PER_SECOND, HIT_ZONE_Y_PERCENT, /*OFFSET,*/ partijOffset]);
+    }, [videoRef, audioRef, isPlaying, noteGroups, player, forgiveness, ui, PIXELS_PER_SECOND, HIT_ZONE_Y_PERCENT, /*OFFSET,*/ partijOffset, gain]);
 
     const startTutorialMusic = (url: string) => {
         if (!audioRef.current) {
