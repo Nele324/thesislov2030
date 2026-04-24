@@ -130,11 +130,11 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
             if (media && isPlaying) {
                 const currentTime = media.currentTime;
                 // Countdown logic
-                if (currentTime < partijOffset - 4) setCountdown(null);
-                else if (currentTime < partijOffset - 3) setCountdown("3");
-                else if (currentTime < partijOffset - 2) setCountdown("2");
-                else if (currentTime < partijOffset - 1) setCountdown("1");
-                else if (currentTime < partijOffset) setCountdown("Start!");
+                if (currentTime < partijOffset - 3.5) setCountdown(null);
+                else if (currentTime < partijOffset - 2.5) setCountdown("3");
+                else if (currentTime < partijOffset - 1.5) setCountdown("2");
+                else if (currentTime < partijOffset - 0.5) setCountdown("1");
+                else if (currentTime <= partijOffset) setCountdown("Start!");
                 else setCountdown(null);
                 const adjustedTime = currentTime - partijOffset;
 
