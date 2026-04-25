@@ -244,7 +244,7 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                 <div className="absolute inset-0 z-0">
                     <video
                         ref={videoRef}
-                        src="/HowToTrainYourDragonLowSize.mp4"
+                        src="/HowToTrainYourDragon.mp4"
                         crossOrigin='anonymous'
                         className="w-full h-full object-cover opacity-80"
                         onPlay={() => setIsPlaying(true)}
