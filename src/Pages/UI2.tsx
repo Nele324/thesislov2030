@@ -385,6 +385,8 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                                 const isCurrentMeasure = note.firstBeat && note.time === activeMeasureTime;
                                 const segmentStart = segments[currentSegment]?.[0]?.time || 0;
                                 const leftPos = (note.time - segmentStart) * dynamicPPS;
+                                const segmentNotes = segments[currentSegment];
+                                const isLastNote = segmentNotes && note.id === segmentNotes[segmentNotes.length - 1].id;
                                 return (
                                     <React.Fragment key={note.id}>
                                         {note.firstBeat && (
@@ -425,6 +427,19 @@ const UI2: React.FC<UI2Props> = ({ partij, forgiveness, ui, tutorial, onBack, on
                                         >
                                             <div className="absolute inset-0 bg-white/5 pointer-events-none" />
                                         </motion.div>
+
+                                        {currentSegment === 0 && isLastNote && (
+                                            <div
+                                                className="absolute flex items-center justify-center text-amber-300 text-xl"
+                                                style={{
+                                                    left: `${(note.time - segmentStart) * dynamicPPS + (note.duration * dynamicPPS) + 6}px`,
+                                                    top: '50%',
+                                                    transform: 'translateY(-50%)',
+                                                }}
+                                            >
+                                                →
+                                            </div>
+                                        )}
                                     </React.Fragment>
                                 );
                             })}
